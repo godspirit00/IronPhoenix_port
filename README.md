@@ -76,8 +76,8 @@ Builds use [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) (i686 target) an
 (Git Bash works).
 
 ```bash
-git clone --recursive https://github.com/<you>/<repo>.git
-cd <repo>
+git clone --recursive https://github.com/godspirit00/IronPhoenix_port.git
+cd IronPhoenix_port
 # toolchain: unzip llvm-mingw-20261006-ucrt-x86_64.zip into ./toolchain
 curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip
 unzip -q llvm-mingw-20261006-ucrt-x86_64.zip -d toolchain
@@ -85,7 +85,7 @@ unzip -q llvm-mingw-20261006-ucrt-x86_64.zip -d toolchain
 ```
 
 Output: `build/ironphoenix.exe`. To use a toolchain elsewhere, set `TC=/path/to/llvm-mingw/bin`.
-Run from the build folder with `./ironphoenix.exe --game ../extracted --save ./save`.
+Run from the build folder with `./ironphoenix.exe`.
 
 Every push to `main` is built by GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml))
 and published as the `nightly` release, which replaces the previous one.
