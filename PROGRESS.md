@@ -48,7 +48,7 @@ Audio (later): DSound pokes APU MMIO 0xFE820000 directly -> HLE DSound (or LLE v
 - `notes/`      symbols_raw.txt (450 XDK symbols), kernel_imports.txt, kernel_sigs.json, ...
 - Git repo root = `port/` (2026-11-08). Game files, build/, toolchain/, bin/, scratch/, reference repos
   (Cxbx-Reloaded, dsp56300-ref) are gitignored. libsamplerate/nv2a_vsh_cpu/xxHash/XbSymbolDatabase are
-  submodules. CI: .github/workflows/build.yml (windows-latest, downloads llvm-mingw, release `build-N`
+  submodules. CI: .github/workflows/build.yml (windows-latest, downloads llvm-mingw, `nightly` release (overwritten)
   on every push to main). Generated files (symbols.gen.h, ktable.gen.cpp, fs_sites.gen.inc) are committed
   because CI has no game XBE.
 - Run: `cd build && ./ironphoenix.exe --game ../extracted --save ./save [--scale N] [--aspect 16:9|4:3]

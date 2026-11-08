@@ -51,30 +51,35 @@ jobs:
         id: pkg
         run: |
           SHORT=${GITHUB_SHA::7}
-          NAME="ironphoenix-build${GITHUB_RUN_NUMBER}-${SHORT}"
-          mkdir -p dist/$NAME
-          cp build/ironphoenix.exe README.md LICENSE dist/$NAME/
-          mkdir -p dist/$NAME/game
-          echo "Copy the contents of your Iron Phoenix disc (default.xbe, Chara, Model, ...) into this folder." > dist/$NAME/game/PUT_GAME_FILES_HERE.txt
-          (cd dist && 7z a -tzip ../$NAME.zip $NAME > /dev/null)
-          echo "name=$NAME" >> $GITHUB_OUTPUT
+          mkdir -p dist/ironphoenix/game
+          cp build/ironphoenix.exe README.md LICENSE dist/ironphoenix/
+          echo "Copy the contents of your Iron Phoenix disc (default.xbe, Chara, Model, ...) into this folder." > dist/ironphoenix/game/PUT_GAME_FILES_HERE.txt
+          (cd dist && 7z a -tzip ../ironphoenix-nightly.zip ironphoenix > /dev/null)
           echo "short=$SHORT" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.pkg.outputs.name }}
-          path: ${{ steps.pkg.outputs.name }}.zip
+          name: ironphoenix-${{ steps.pkg.outputs.short }}
+          path: ironphoenix-nightly.zip
 
-      - name: Publish release
+      - name: Publish nightly release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="build-${GITHUB_RUN_NUMBER}"
-          git log -1 --format='%s%n%n%b' > notes.md
-          printf '\n---\nCommit: %s\n\nGame files are **not** included; see README.md.\n' "$GITHUB_SHA" >> notes.md
-          gh release create "$TAG" "${{ steps.pkg.outputs.name }}.zip" \
+          {
+            echo "Automated build of \`main\` at ${GITHUB_SHA} ($(date -u '+%Y-%m-%d %H:%M UTC'))."
+            echo
+            echo "Latest change:"
+            echo
+            git log -1 --format='> %s'
+            echo
+            echo "Game files are **not** included; see README.md."
+          } > notes.md
+          # Replace the previous nightly: drop the old release and its tag, then recreate at this commit.
+          gh release delete nightly --cleanup-tag --yes || true
+          gh release create nightly ironphoenix-nightly.zip \
             --target "$GITHUB_SHA" \
-            --title "Build ${GITHUB_RUN_NUMBER} (${{ steps.pkg.outputs.short }})" \
+            --title "Nightly (${{ steps.pkg.outputs.short }})" \
             --notes-file notes.md \
             --latest

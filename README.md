@@ -1,5 +1,7 @@
 # Iron Phoenix — native PC port
 
+<img src="docs/boxart.jpg" alt="Iron Phoenix (Xbox) North American box art" width="240" align="right">
+
 A native Windows runtime for **Iron Phoenix** (Original Xbox, 2005). The game's own 32-bit x86 code runs
 directly on the PC CPU without CPU emulation. The Xbox kernel is reimplemented and the Xbox GPU,
 audio processor and network card are emulated (ported from [xemu](https://xemu.app)). On top of that it
@@ -17,7 +19,8 @@ adds modern display features:
 
 ## Quick start
 
-1. Download the latest `ironphoenix-*.zip` from [Releases](../../releases) and unzip it.
+1. Download `ironphoenix-nightly.zip` from the [nightly release](../../releases/tag/nightly)
+   (rebuilt from the latest commit on `main`) and unzip it.
 2. Extract your disc image into the `game` folder next to `ironphoenix.exe`, so that
    `game\default.xbe` exists (along with `Chara`, `Model`, `Scene`, `Script`, `*.xwb`, ...).
    Any XISO extractor works, or use the one in this repo:
@@ -85,7 +88,7 @@ Output: `build/ironphoenix.exe`. To use a toolchain elsewhere, set `TC=/path/to/
 Run from the build folder with `./ironphoenix.exe --game ../extracted --save ./save`.
 
 Every push to `main` is built by GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml))
-and published as a release `build-N`.
+and published as the `nightly` release, which replaces the previous one.
 
 ## How it works
 
@@ -125,3 +128,5 @@ files keep their original license headers.
 - [nv2a_vsh_cpu](https://github.com/xemu-project/nv2a_vsh_cpu), [libsamplerate](https://github.com/libsndfile/libsamplerate),
   [xxHash](https://github.com/Cyan4973/xxHash), [glad](https://github.com/Dav1dde/glad)
 - [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) toolchain
+
+Box art © SEGA, shown for identification only (scan via [LaunchBox Games Database](https://gamesdb.launchbox-app.com/games/details/41447-iron-phoenix)).
