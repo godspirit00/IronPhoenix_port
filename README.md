@@ -67,8 +67,29 @@ Xbox controllers map to XInput gamepads (Xbox 360/One/Series pads). Keyboard fal
 
 ## Texture replacement
 
-Set `XB_TEX_DUMP=1` to dump textures to `textures_dump\<hash>.png`. Put replacements in
-`textures\<hash>.png` (or `.jpg`) next to the exe. Replacements may be up to 8× the original size.
+Textures are identified by a hash of their data. To replace one:
+
+1. Run with the environment variable `XB_TEX_DUMP=1` set (e.g. `set XB_TEX_DUMP=1` in a command prompt,
+   then start `ironphoenix.exe`). Every texture the game loads is saved as `textures_dump\<hash>.png`
+   next to the exe, the right way up and ready to edit.
+2. Edit the image, or draw a new one, and save it as `textures\<hash>.png` (or `.jpg`) next to the exe.
+3. Run normally (without `XB_TEX_DUMP`). The log reports `texture replacement: N file(s)`.
+
+Replacements may have any size up to 8× the original and any aspect ratio. They are rescaled to fit
+the original texture slot.
+
+### 16:9 menu background
+
+The UI runs in widescreen, but the menu background is 4:3 art, so by default it is stretched to fill
+the screen. You can make your own 16:9 version (it also shows behind the scroll screens):
+
+1. Dump textures as above and open the main menu. The background is `textures_dump\e798c2050382c4dc.png`
+   (512×512; the game displays it stretched to 4:3).
+2. Resize it to 4:3 (e.g. 2048×1536) to see its true proportions.
+3. Widen the canvas to 16:9 (e.g. 2752×1536) and fill the new side areas by hand-painting, cloning or
+   AI outpainting. Keep the original 4:3 area in the center unchanged.
+4. Save the result as `textures\e798c2050382c4dc.jpg` (or `.png`). Use a 16:9 image; the runtime fits
+   it into the texture slot and it is displayed at full width.
 
 ## Building
 
