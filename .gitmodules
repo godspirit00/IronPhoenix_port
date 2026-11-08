@@ -1,0 +1,12 @@
+[submodule "third_party/libsamplerate"]
+	path = third_party/libsamplerate
+	url = https://github.com/libsndfile/libsamplerate.git
+[submodule "third_party/nv2a_vsh_cpu"]
+	path = third_party/nv2a_vsh_cpu
+	url = https://github.com/xemu-project/nv2a_vsh_cpu.git
+[submodule "third_party/xxHash"]
+	path = third_party/xxHash
+	url = https://github.com/Cyan4973/xxHash.git
+[submodule "third_party/XbSymbolDatabase"]
+	path = third_party/XbSymbolDatabase
+	url = https://github.com/Cxbx-Reloaded/XbSymbolDatabase.git

@@ -1,0 +1,38 @@
+# ---- Game files: never commit (copyrighted). Supply your own disc dump. ----
+extracted/
+game/
+*.iso
+*.xiso
+*.xbe
+*.xwb
+*.xsb
+*.xbx
+
+# ---- Build output / runtime data ----
+build/
+save/
+*.o
+*.obj
+*.exe
+*.log
+*.wav
+*.mp3
+
+# ---- Toolchain (downloaded, see README) and prebuilt helper binaries ----
+toolchain/
+bin/
+
+# ---- Reference-only checkouts (not needed to build) ----
+third_party/Cxbx-Reloaded/
+third_party/dsp56300-ref/
+
+# ---- Scratch / caches ----
+scratch/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+.vs/
+*.swp
+Thumbs.db
+desktop.ini

@@ -1,0 +1,37 @@
+kind=retail base=0x10000 imgsize=0x49dde0 entry=0x10f725 kthunk=0x30b900 tls=0x315d84 stack=0x10000 initflags=0x80000003
+debug path: d:\Projects\XBlade\Game\XBox\Release\default.exe
+sections:
+  .text      va=0x00011000 vsize=0x0215ecc raw=0x0001000 rawsize=0x0215ecc flags=0x16
+  D3D        va=0x00226ee0 vsize=0x0014ce0 raw=0x0217000 rawsize=0x00111f8 flags=0x7
+  D3DX       va=0x0023bbc0 vsize=0x0000868 raw=0x0229000 rawsize=0x0000868 flags=0x7
+  XGRPH      va=0x0023c440 vsize=0x0020488 raw=0x022a000 rawsize=0x001f80c flags=0x7
+  DSOUND     va=0x0025c8e0 vsize=0x001e86c raw=0x024a000 rawsize=0x001e604 flags=0x7
+  WMADEC     va=0x0027b160 vsize=0x001907c raw=0x0269000 rawsize=0x001907c flags=0x7
+  XMV        va=0x002941e0 vsize=0x0027fec raw=0x0283000 rawsize=0x0027fdc flags=0x7
+  XACTENG    va=0x002bc1e0 vsize=0x000b9d8 raw=0x02ab000 rawsize=0x000b984 flags=0x7
+  XNET       va=0x002c7bc0 vsize=0x0012f20 raw=0x02b7000 rawsize=0x0012f20 flags=0x26
+  XONLINE    va=0x002daae0 vsize=0x0027f84 raw=0x02ca000 rawsize=0x0027f84 flags=0x16
+  XPP        va=0x00302a80 vsize=0x0008e80 raw=0x02f2000 rawsize=0x0008e80 flags=0x7
+  .rdata     va=0x0030b900 vsize=0x0048074 raw=0x02fb000 rawsize=0x0048064 flags=0x6
+  .data      va=0x00353980 vsize=0x014e398 raw=0x0344000 rawsize=0x000d568 flags=0x7
+  DOLBY      va=0x004a1d20 vsize=0x0007180 raw=0x0352000 rawsize=0x000716c flags=0x26
+  XON_RD     va=0x004a8ea0 vsize=0x0001a90 raw=0x035a000 rawsize=0x0001a90 flags=0x16
+  .data1     va=0x004aa940 vsize=0x00000e0 raw=0x035c000 rawsize=0x00000b0 flags=0x7
+  $$XTIMAGE  va=0x004aaa20 vsize=0x0002800 raw=0x035d000 rawsize=0x0002800 flags=0x28
+  .XTLID     va=0x004ad220 vsize=0x0000ba8 raw=0x0360000 rawsize=0x0000ba8 flags=0x38
+libraries:
+  XAPILIB  1.0.5849 flags=0x4001
+  D3D8     1.0.5849 flags=0x4001
+  D3DX8    1.0.5849 flags=0x4001
+  XGRAPHC  1.0.5849 flags=0x4009
+  DSOUND   1.0.5849 flags=0x4001
+  XBOXKRNL 1.0.5849 flags=0x4001
+  XMV      1.0.5849 flags=0x4001
+  XACTENG  1.0.5849 flags=0x4006
+  XONLINES 1.0.5849 flags=0x2009
+  UIX      1.0.5849 flags=0x4009
+  XVOICE   1.0.5849 flags=0x4004
+  VOICMAIL 1.0.5849 flags=0x4804
+  LIBCMT   1.0.5849 flags=0x4001
+  LIBCPMT  1.0.5849 flags=0x4001
+kernel imports (145): 291 277 294 161 129 189 16 289 225 234 99 250 246 302 258 255 187 197 184 199 217 181 226 202 210 37 207 178 165 164 171 301 49 336 335 337 323 325 354 340 219 215 203 236 172 167 270 233 211 218 198 200 196 71 190 128 40 67 69 305 156 304 65 145 159 113 107 74 85 84 149 97 24 322 166 180 182 179 326 47 83 87 81 17 15 359 358 44 160 98 109 151 324 360 269 279 327 328 357 173 175 119 176 1 2 3 4 46 100 8 168 142 139 23 137 153 252 253 339 338 349 347 346 345 158 355 353 86 62 247 344 150 126 127 42 41 195 228 170 169 312 95 260 308 356

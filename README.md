@@ -1,0 +1,127 @@
+# Iron Phoenix — native PC port
+
+A native Windows runtime for **Iron Phoenix** (Original Xbox, 2005). The game's own 32-bit x86 code runs
+directly on the PC CPU without CPU emulation. The Xbox kernel is reimplemented and the Xbox GPU,
+audio processor and network card are emulated (ported from [xemu](https://xemu.app)). On top of that it
+adds modern display features:
+
+- **High resolution**: internal render scale (default 3× → 1920×1440)
+- **Widescreen**: real 16:9 3D projection, with the 2D UI and HUD laid out for 16:9 instead of stretched
+- **High refresh rate**: configurable vblank rate (`--hz`)
+- Full audio (LLE APU/DSP), intro movies, menus, offline matches with bots
+- Texture replacement (drop-in PNG/JPG packs)
+
+> **No game data is included.** This repository and its releases contain only the runtime.
+> You need your own legally obtained copy of Iron Phoenix (an XISO dump of your disc).
+> Iron Phoenix is © its respective owners; this project is not affiliated with them or with Microsoft.
+
+## Quick start
+
+1. Download the latest `ironphoenix-*.zip` from [Releases](../../releases) and unzip it.
+2. Extract your disc image into the `game` folder next to `ironphoenix.exe`, so that
+   `game\default.xbe` exists (along with `Chara`, `Model`, `Scene`, `Script`, `*.xwb`, ...).
+   Any XISO extractor works, or use the one in this repo:
+   ```
+   python tools/xiso.py IronPhoenix.iso game
+   ```
+3. Run `ironphoenix.exe`. Saves go to `save\` next to the exe; the log is written to `ironphoenix.log`.
+
+**Requirements:** 64-bit Windows 10/11 and a GPU with a recent OpenGL 4.x driver.
+Development and testing were done on NVIDIA GPUs (RTX 2070, GTX 1060).
+
+The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos take longer.
+
+## Command-line options
+
+| Option | Description |
+|---|---|
+| `--game DIR` | Game files directory (default: `game` next to the exe) |
+| `--save DIR` | Save directory (default: `save` next to the exe) |
+| `--scale N` | Internal resolution scale (default 3; 4 is GPU-heavy) |
+| `--aspect 16:9\|4:3` | Output aspect ratio (default 16:9) |
+| `--stretch-ui` | In widescreen, keep the original stretched 2D UI |
+| `--fullscreen` | Start in fullscreen (toggle with Alt+Enter or F11) |
+| `--hz N` | Emulated vblank rate (default 60; e.g. 120 for higher fps) |
+| `--novsync` | Disable vsync pacing |
+| `-vk`, `-vf` | Verbose kernel / file-access logging |
+
+Developer options (`--trace`, `--profile`, `--input`, `--audio-dump`, `--shot-every`, `--dump-after`,
+`XB_*` environment variables) are documented in [PROGRESS.md](PROGRESS.md).
+
+## Controls
+
+Xbox controllers map to XInput gamepads (Xbox 360/One/Series pads). Keyboard fallback:
+
+| Xbox | Keyboard |
+|---|---|
+| Left stick | W A S D |
+| Right stick | I J K L |
+| D-pad | Arrow keys |
+| A / B / X / Y | Space / E / Q / R |
+| White / Black | Z / C |
+| L / R trigger | Left Shift / Right Shift or F |
+| Start / Back | Enter / Backspace |
+
+## Texture replacement
+
+Set `XB_TEX_DUMP=1` to dump textures to `textures_dump\<hash>.png`. Put replacements in
+`textures\<hash>.png` (or `.jpg`) next to the exe. Replacements may be up to 8× the original size.
+
+## Building
+
+Builds use [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) (i686 target) and a bash shell
+(Git Bash works).
+
+```bash
+git clone --recursive https://github.com/<you>/<repo>.git
+cd <repo>
+# toolchain: unzip llvm-mingw-20261006-ucrt-x86_64.zip into ./toolchain
+curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip
+unzip -q llvm-mingw-20261006-ucrt-x86_64.zip -d toolchain
+./build.sh          # incremental; ./build.sh clean for a full rebuild
+```
+
+Output: `build/ironphoenix.exe`. To use a toolchain elsewhere, set `TC=/path/to/llvm-mingw/bin`.
+Run from the build folder with `./ironphoenix.exe --game ../extracted --save ./save`.
+
+Every push to `main` is built by GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml))
+and published as a release `build-N`.
+
+## How it works
+
+- The exe is linked at image base `0x10000` and reserves `0x11000–0x4B0000` in its own image. At startup
+  the XBE sections are copied to their original addresses, so the game code runs unmodified at native speed.
+- About 145 `xboxkrnl` exports are reimplemented (`src/kernel`). Xbox `fs:`-segment accesses are patched
+  into calls (`src/cpu`). Timing (`rdtsc` @ 733 MHz) is rescaled to the host clock.
+- **GPU**: the game's own D3D8 library drives a virtual NV2A. MMIO at `0xFD000000` is trapped (and
+  hot-patched into direct calls). PFIFO/PGRAPH come from xemu's OpenGL renderer (`src/nv2a`).
+- **Audio**: xemu's MCPX APU and DSP56300 interpreter (`src/apu`) feed WASAPI output.
+- **Network**: xemu's nvnet with the link permanently down, so the game sees an unplugged console and
+  offline play works.
+- HLE hooks (`src/hle`) cover input, a few engine fixes and the widescreen UI script patches.
+
+[PROGRESS.md](PROGRESS.md) is the detailed development log: findings, fixes and debugging tools.
+
+### Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/` | Runtime sources (kernel, CPU patching, NV2A, APU, NIC, HLE, video/audio output) |
+| `tools/` | Python helpers: XISO/XBE tools, disassembler, xref finder, code generators, profiler |
+| `notes/` | Symbol/import tables extracted from the XBE (inputs to the generators) |
+| `third_party/` | glad (vendored); libsamplerate, nv2a_vsh_cpu, xxHash, XbSymbolDatabase (submodules) |
+
+## License
+
+GPL-2.0-or-later (see [LICENSE](LICENSE)). It has to be: large parts of `src/nv2a`, `src/apu` and `src/net`
+are derived from [xemu](https://github.com/xemu-project/xemu) / QEMU (GPL-2.0+ / LGPL-2.1+). Individual
+files keep their original license headers.
+
+## Credits
+
+- [xemu](https://github.com/xemu-project/xemu): NV2A, MCPX APU/DSP and nvnet emulation
+- [Cxbx-Reloaded](https://github.com/Cxbx-Reloaded/Cxbx-Reloaded) and
+  [XbSymbolDatabase](https://github.com/Cxbx-Reloaded/XbSymbolDatabase): kernel reference and XDK symbol detection
+- [nv2a_vsh_cpu](https://github.com/xemu-project/nv2a_vsh_cpu), [libsamplerate](https://github.com/libsndfile/libsamplerate),
+  [xxHash](https://github.com/Cyan4973/xxHash), [glad](https://github.com/Dav1dde/glad)
+- [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) toolchain

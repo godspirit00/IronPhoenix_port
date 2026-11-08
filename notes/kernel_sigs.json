@@ -1,0 +1,3701 @@
+{
+ "5": {
+  "name": "DbgBreakPoint",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "6": {
+  "name": "DbgBreakPointWithStatus",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt Status"
+  ]
+ },
+ "7": {
+  "name": "DbgLoadImageSymbols",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PANSI_STRING Name",
+   "IN PVOID Base",
+   "IN ulong_ptr_xt ProcessId"
+  ]
+ },
+ "8": {
+  "name": "DbgPrint",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "_cdecl",
+  "args": [
+   "PCHAR  Format",
+   "..."
+  ]
+ },
+ "10": {
+  "name": "DbgPrompt",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PCCH Prompt",
+   "OUT PCH Response",
+   "IN ulong_xt MaximumResponseLength"
+  ]
+ },
+ "11": {
+  "name": "DbgUnLoadImageSymbols",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PANSI_STRING Name",
+   "IN PVOID Base",
+   "IN ulong_ptr_xt ProcessId"
+  ]
+ },
+ "12": {
+  "name": "ExAcquireReadWriteLockExclusive",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PERWLOCK ReadWriteLock"
+  ]
+ },
+ "13": {
+  "name": "ExAcquireReadWriteLockShared",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PERWLOCK ReadWriteLock"
+  ]
+ },
+ "14": {
+  "name": "ExAllocatePool",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN size_xt NumberOfBytes"
+  ]
+ },
+ "15": {
+  "name": "ExAllocatePoolWithTag",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN size_xt NumberOfBytes",
+   "IN ulong_xt Tag"
+  ]
+ },
+ "16": {
+  "name": "ExEventObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "17": {
+  "name": "ExFreePool",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID P"
+  ]
+ },
+ "18": {
+  "name": "ExInitializeReadWriteLock",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PERWLOCK ReadWriteLock"
+  ]
+ },
+ "19": {
+  "name": "ExInterlockedAddLargeInteger",
+  "kind": "func",
+  "ret": "LARGE_INTEGER",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PLARGE_INTEGER Addend",
+   "IN LARGE_INTEGER Increment",
+   "IN OUT PKSPIN_LOCK Lock"
+  ]
+ },
+ "20": {
+  "name": "ExInterlockedAddLargeStatistic",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PLARGE_INTEGER Addend",
+   "IN ulong_xt Increment"
+  ]
+ },
+ "21": {
+  "name": "ExInterlockedCompareExchange64",
+  "kind": "func",
+  "ret": "longlong_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN OUT PLONGLONG Destination",
+   "IN PLONGLONG Exchange",
+   "IN PLONGLONG Comparand"
+  ]
+ },
+ "22": {
+  "name": "ExMutantObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "23": {
+  "name": "ExQueryPoolBlockSize",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID PoolBlock"
+  ]
+ },
+ "24": {
+  "name": "ExQueryNonVolatileSetting",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  dword_xt               ValueIndex",
+   "OUT dword_xt              *Type",
+   "OUT PVOID               Value",
+   "IN  size_xt              ValueLength",
+   "OUT PSIZE_T             ResultLength OPTIONAL"
+  ]
+ },
+ "25": {
+  "name": "ExReadWriteRefurbInfo",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PXBOX_REFURB_INFO\tpRefurbInfo",
+   "IN ulong_xt\tdwBufferSize",
+   "IN boolean_xt\tbIsWriteMode"
+  ]
+ },
+ "26": {
+  "name": "ExRaiseException",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PEXCEPTION_RECORD ExceptionRecord"
+  ]
+ },
+ "27": {
+  "name": "ExRaiseStatus",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ntstatus_xt Status"
+  ]
+ },
+ "28": {
+  "name": "ExReleaseReadWriteLock",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PERWLOCK ReadWriteLock"
+  ]
+ },
+ "29": {
+  "name": "ExSaveNonVolatileSetting",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  dword_xt               ValueIndex",
+   "IN  dword_xt               Type",
+   "IN  PVOID               Value",
+   "IN  size_xt              ValueLength"
+  ]
+ },
+ "30": {
+  "name": "ExSemaphoreObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "31": {
+  "name": "ExTimerObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "32": {
+  "name": "ExfInterlockedInsertHeadList",
+  "kind": "func",
+  "ret": "PLIST_ENTRY",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PLIST_ENTRY ListHead",
+   "IN PLIST_ENTRY ListEntry"
+  ]
+ },
+ "33": {
+  "name": "ExfInterlockedInsertTailList",
+  "kind": "func",
+  "ret": "PLIST_ENTRY",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PLIST_ENTRY ListHead",
+   "IN PLIST_ENTRY ListEntry"
+  ]
+ },
+ "34": {
+  "name": "ExfInterlockedRemoveHeadList",
+  "kind": "func",
+  "ret": "PLIST_ENTRY",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PLIST_ENTRY ListHead"
+  ]
+ },
+ "51": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedCompareExchange)\n(\n\tIN OUT volatile PLONG Destination",
+   "IN long_xt  Exchange",
+   "IN long_xt  Comparand"
+  ]
+ },
+ "52": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedDecrement)\n(\n\tIN OUT PLONG Addend"
+  ]
+ },
+ "53": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedIncrement)\n(\n\tIN OUT PLONG Addend"
+  ]
+ },
+ "54": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedExchange)\n(\n\tIN volatile PLONG Destination",
+   "IN long_xt Value"
+  ]
+ },
+ "55": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedExchangeAdd)\n(\n\tIN volatile PLONG Addend",
+   "IN long_xt\tValue"
+  ]
+ },
+ "56": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "SINGLE_LIST_ENTRY *",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedFlushSList)\n(\n\tIN PSLIST_HEADER ListHead"
+  ]
+ },
+ "57": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "SLIST_ENTRY *",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedPopEntrySList)\n(\n\tIN PSLIST_HEADER ListHead"
+  ]
+ },
+ "58": {
+  "name": "KRNL",
+  "kind": "func",
+  "ret": "SLIST_ENTRY *",
+  "cc": "FASTCALL",
+  "args": [
+   "InterlockedPushEntrySList)\n(\n\tIN PSLIST_HEADER ListHead",
+   "IN PSLIST_ENTRY ListEntry"
+  ]
+ },
+ "9": {
+  "name": "HalReadSMCTrayState",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "dword_xt*\tState",
+   "dword_xt*\tCount"
+  ]
+ },
+ "38": {
+  "name": "HalClearSoftwareInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "KIRQL Request"
+  ]
+ },
+ "39": {
+  "name": "HalDisableSystemInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt BusInterruptLevel"
+  ]
+ },
+ "40": {
+  "name": "HalDiskCachePartitionCount",
+  "kind": "var",
+  "type": "ulong_xt"
+ },
+ "41": {
+  "name": "HalDiskModelNumber",
+  "kind": "var",
+  "type": "PANSI_STRING"
+ },
+ "42": {
+  "name": "HalDiskSerialNumber",
+  "kind": "var",
+  "type": "PANSI_STRING"
+ },
+ "43": {
+  "name": "HalEnableSystemInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt BusInterruptLevel",
+   "IN KINTERRUPT_MODE InterruptMode"
+  ]
+ },
+ "44": {
+  "name": "HalGetInterruptVector",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt   BusInterruptLevel",
+   "OUT PKIRQL Irql"
+  ]
+ },
+ "45": {
+  "name": "HalReadSMBusValue",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN uchar_xt   Address",
+   "IN uchar_xt   Command",
+   "IN boolean_xt WriteWord",
+   "OUT PULONG DataValue"
+  ]
+ },
+ "46": {
+  "name": "HalRequestSoftwareInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN KIRQL Request"
+  ]
+ },
+ "47": {
+  "name": "HalRegisterShutdownNotification",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PHAL_SHUTDOWN_REGISTRATION ShutdownRegistration",
+   "IN boolean_xt Register"
+  ]
+ },
+ "49": {
+  "name": "HalReturnToFirmware",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "DECLSPEC_NORETURN NTAPI",
+  "args": [
+   "RETURN_FIRMWARE Routine"
+  ]
+ },
+ "50": {
+  "name": "HalWriteSMBusValue",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "uchar_xt   Address",
+   "uchar_xt   Command",
+   "boolean_xt WriteWord",
+   "ulong_xt   DataValue"
+  ]
+ },
+ "329": {
+  "name": "READ_PORT_BUFFER_UCHAR",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PUCHAR Buffer",
+   "IN ulong_xt  Count"
+  ]
+ },
+ "330": {
+  "name": "READ_PORT_BUFFER_USHORT",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PUSHORT Buffer",
+   "IN ulong_xt   Count"
+  ]
+ },
+ "331": {
+  "name": "READ_PORT_BUFFER_ULONG",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PULONG Buffer",
+   "IN ulong_xt  Count"
+  ]
+ },
+ "332": {
+  "name": "WRITE_PORT_BUFFER_UCHAR",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PUCHAR Buffer",
+   "IN ulong_xt  Count"
+  ]
+ },
+ "333": {
+  "name": "WRITE_PORT_BUFFER_USHORT",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PUSHORT Buffer",
+   "IN ulong_xt   Count"
+  ]
+ },
+ "334": {
+  "name": "WRITE_PORT_BUFFER_ULONG",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt Port",
+   "IN PULONG Buffer",
+   "IN ulong_xt  Count"
+  ]
+ },
+ "356": {
+  "name": "HalBootSMCVideoMode",
+  "kind": "var",
+  "type": "dword_xt"
+ },
+ "358": {
+  "name": "HalIsResetOrShutdownPending",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "360": {
+  "name": "HalInitiateShutdown",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "365": {
+  "name": "HalEnableSecureTrayEject",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "366": {
+  "name": "HalWriteSMCScratchRegister",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt ScratchRegister"
+  ]
+ },
+ "59": {
+  "name": "IoAllocateIrp",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN cchar_xt StackSize"
+  ]
+ },
+ "60": {
+  "name": "IoBuildAsynchronousFsdRequest",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt MajorFunction",
+   "IN PDEVICE_OBJECT DeviceObject",
+   "OUT PVOID Buffer OPTIONAL",
+   "IN ulong_xt Length",
+   "OUT PLARGE_INTEGER StartingOffset OPTIONAL",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock OPTIONAL"
+  ]
+ },
+ "61": {
+  "name": "IoBuildDeviceIoControlRequest",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt IoControlCode",
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN PVOID InputBuffer OPTIONAL",
+   "IN ulong_xt InputBufferLength",
+   "OUT PVOID OutputBuffer OPTIONAL",
+   "IN ulong_xt OutputBufferLength OPTIONAL",
+   "IN boolean_xt InternalDeviceIoControl",
+   "IN PKEVENT Event",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock OPTIONAL"
+  ]
+ },
+ "62": {
+  "name": "IoBuildSynchronousFsdRequest",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt MajorFunction",
+   "IN PDEVICE_OBJECT DeviceObject",
+   "OUT PVOID Buffer OPTIONAL",
+   "IN ulong_xt Length",
+   "OUT PLARGE_INTEGER StartingOffset OPTIONAL",
+   "IN PKEVENT Event",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock"
+  ]
+ },
+ "63": {
+  "name": "IoCheckShareAccess",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN access_mask_xt DesiredAccess",
+   "IN ulong_xt DesiredShareAccess",
+   "OUT PFILE_OBJECT FileObject",
+   "OUT PSHARE_ACCESS ShareAccess",
+   "IN boolean_xt Update"
+  ]
+ },
+ "64": {
+  "name": "IoCompletionObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "65": {
+  "name": "IoCreateDevice",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PDRIVER_OBJECT\t\tDriverObject",
+   "IN  ulong_xt\t\t\t\tDeviceExtensionSize",
+   "IN  PSTRING\t\t\t\tDeviceName OPTIONAL",
+   "IN  ulong_xt\t\t\t\tDeviceType",
+   "IN  boolean_xt\t\t\t\tExclusive",
+   "OUT PDEVICE_OBJECT*\t\tDeviceObject"
+  ]
+ },
+ "66": {
+  "name": "IoCreateFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             FileHandle",
+   "IN  access_mask_xt         DesiredAccess",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes",
+   "OUT PIO_STATUS_BLOCK    IoStatusBlock",
+   "IN  PLARGE_INTEGER      AllocationSize",
+   "IN  ulong_xt               FileAttributes",
+   "IN  ulong_xt               ShareAccess",
+   "IN  ulong_xt               Disposition",
+   "IN  ulong_xt               CreateOptions",
+   "IN  ulong_xt               Options"
+  ]
+ },
+ "67": {
+  "name": "IoCreateSymbolicLink",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PSTRING SymbolicLinkName",
+   "IN PSTRING DeviceName"
+  ]
+ },
+ "68": {
+  "name": "IoDeleteDevice",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject"
+  ]
+ },
+ "69": {
+  "name": "IoDeleteSymbolicLink",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PSTRING SymbolicLinkName"
+  ]
+ },
+ "70": {
+  "name": "IoDeviceObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "71": {
+  "name": "IoFileObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "72": {
+  "name": "IoFreeIrp",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PIRP Irp"
+  ]
+ },
+ "73": {
+  "name": "IoInitializeIrp",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN PIRP Irp",
+   "IN ushort_xt PacketSize",
+   "IN cchar_xt StackSize"
+  ]
+ },
+ "74": {
+  "name": "IoInvalidDeviceRequest",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN PIRP Irp"
+  ]
+ },
+ "75": {
+  "name": "IoQueryFileInformation",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PFILE_OBJECT FileObject",
+   "IN FILE_INFORMATION_CLASS FileInformationClass",
+   "IN ulong_xt Length",
+   "OUT PVOID FileInformation",
+   "OUT PULONG ReturnedLength"
+  ]
+ },
+ "76": {
+  "name": "IoQueryVolumeInformation",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PFILE_OBJECT FileObject",
+   "IN FS_INFORMATION_CLASS FsInformationClass",
+   "IN ulong_xt Length",
+   "OUT PVOID FsInformation",
+   "OUT PULONG ReturnedLength"
+  ]
+ },
+ "77": {
+  "name": "IoQueueThreadIrp",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PIRP Irp"
+  ]
+ },
+ "78": {
+  "name": "IoRemoveShareAccess",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PFILE_OBJECT FileObject",
+   "IN PSHARE_ACCESS ShareAccess"
+  ]
+ },
+ "79": {
+  "name": "IoSetIoCompletion",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKQUEUE IoCompletion",
+   "IN PVOID KeyContext",
+   "IN PVOID ApcContext",
+   "IN ntstatus_xt IoStatus",
+   "IN ulong_xt IoStatusInformation"
+  ]
+ },
+ "80": {
+  "name": "IoSetShareAccess",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN access_mask_xt DesiredAccess",
+   "IN ulong_xt       DesiredShareAccess",
+   "IN PFILE_OBJECT   FileObject",
+   "OUT PSHARE_ACCESS ShareAccess"
+  ]
+ },
+ "81": {
+  "name": "IoStartNextPacket",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject"
+  ]
+ },
+ "82": {
+  "name": "IoStartNextPacketByKey",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN ulong_xt Key"
+  ]
+ },
+ "83": {
+  "name": "IoStartPacket",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN PIRP Irp",
+   "OUT PULONG Key OPTIONAL"
+  ]
+ },
+ "84": {
+  "name": "IoSynchronousDeviceIoControlRequest",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt IoControlCode",
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN PVOID InputBuffer OPTIONAL",
+   "IN ulong_xt InputBufferLength",
+   "OUT PVOID OutputBuffer OPTIONAL",
+   "IN ulong_xt OutputBufferLength",
+   "OUT PULONG ReturnedOutputBufferLength OPTIONAL",
+   "IN boolean_xt InternalDeviceIoControl"
+  ]
+ },
+ "85": {
+  "name": "IoSynchronousFsdRequest",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt MajorFunction",
+   "IN PDEVICE_OBJECT DeviceObject",
+   "OUT PVOID Buffer OPTIONAL",
+   "IN ulong_xt Length",
+   "IN PLARGE_INTEGER StartingOffset OPTIONAL"
+  ]
+ },
+ "86": {
+  "name": "IofCallDriver",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject",
+   "IN PIRP Irp"
+  ]
+ },
+ "87": {
+  "name": "IofCompleteRequest",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PIRP Irp",
+   "IN cchar_xt PriorityBoost"
+  ]
+ },
+ "90": {
+  "name": "IoDismountVolume",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PDEVICE_OBJECT DeviceObject"
+  ]
+ },
+ "91": {
+  "name": "IoDismountVolumeByName",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PSTRING VolumeName"
+  ]
+ },
+ "359": {
+  "name": "IoMarkIrpMustComplete",
+  "kind": "func",
+  "ret": "cchar_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PIRP Irp"
+  ]
+ },
+ "92": {
+  "name": "KeAlertResumeThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE ThreadHandle",
+   "IN OUT PULONG PreviousSuspendCount"
+  ]
+ },
+ "93": {
+  "name": "KeAlertThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE ThreadHandle"
+  ]
+ },
+ "94": {
+  "name": "KeBoostPriorityThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD Thread",
+   "IN KPRIORITY Increment"
+  ]
+ },
+ "95": {
+  "name": "KeBugCheck",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt BugCheckMode"
+  ]
+ },
+ "96": {
+  "name": "KeBugCheckEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN dword_xt BugCheckCode",
+   "IN PVOID BugCheckParameter1",
+   "IN PVOID BugCheckParameter2",
+   "IN PVOID BugCheckParameter3",
+   "IN PVOID BugCheckParameter4"
+  ]
+ },
+ "97": {
+  "name": "KeCancelTimer",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTIMER"
+  ]
+ },
+ "98": {
+  "name": "KeConnectInterrupt",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKINTERRUPT  InterruptObject"
+  ]
+ },
+ "99": {
+  "name": "KeDelayExecutionThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN KPROCESSOR_MODE  WaitMode",
+   "IN boolean_xt          Alertable",
+   "IN PLARGE_INTEGER   Interval"
+  ]
+ },
+ "100": {
+  "name": "KeDisconnectInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKINTERRUPT  InterruptObject"
+  ]
+ },
+ "101": {
+  "name": "KeEnterCriticalRegion",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "void_xt"
+  ]
+ },
+ "103": {
+  "name": "KeGetCurrentIrql",
+  "kind": "func",
+  "ret": "KIRQL",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "104": {
+  "name": "KeGetCurrentThread",
+  "kind": "func",
+  "ret": "PKTHREAD",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "105": {
+  "name": "KeInitializeApc",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKAPC Apc",
+   "IN PKTHREAD Thread",
+   "IN PKKERNEL_ROUTINE KernelRoutine",
+   "IN PKRUNDOWN_ROUTINE RundownRoutine OPTIONAL",
+   "IN PKNORMAL_ROUTINE NormalRoutine OPTIONAL",
+   "IN KPROCESSOR_MODE ApcMode OPTIONAL",
+   "IN PVOID NormalContext OPTIONAL"
+  ]
+ },
+ "106": {
+  "name": "KeInitializeDeviceQueue",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PKDEVICE_QUEUE DeviceQueue"
+  ]
+ },
+ "107": {
+  "name": "KeInitializeDpc",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "KDPC                *Dpc",
+   "PKDEFERRED_ROUTINE   DeferredRoutine",
+   "PVOID                DeferredContext"
+  ]
+ },
+ "108": {
+  "name": "KeInitializeEvent",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKEVENT Event",
+   "IN EVENT_TYPE Type",
+   "IN boolean_xt SignalState"
+  ]
+ },
+ "109": {
+  "name": "KeInitializeInterrupt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PKINTERRUPT Interrupt",
+   "IN PKSERVICE_ROUTINE ServiceRoutine",
+   "IN PVOID ServiceContext",
+   "IN ulong_xt Vector",
+   "IN KIRQL Irql",
+   "IN KINTERRUPT_MODE InterruptMode",
+   "IN boolean_xt ShareVector"
+  ]
+ },
+ "110": {
+  "name": "KeInitializeMutant",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKMUTANT Mutant",
+   "IN boolean_xt InitialOwner"
+  ]
+ },
+ "111": {
+  "name": "KeInitializeQueue",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKQUEUE Queue",
+   "IN ulong_xt Count OPTIONAL"
+  ]
+ },
+ "112": {
+  "name": "KeInitializeSemaphore",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKSEMAPHORE Semaphore",
+   "IN long_xt Count",
+   "IN long_xt Limit"
+  ]
+ },
+ "113": {
+  "name": "KeInitializeTimerEx",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTIMER      Timer",
+   "IN TIMER_TYPE   Type"
+  ]
+ },
+ "114": {
+  "name": "KeInsertByKeyDeviceQueue",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDEVICE_QUEUE DeviceQueue",
+   "IN PKDEVICE_QUEUE_ENTRY DeviceQueueEntry",
+   "IN ulong_xt SortKey"
+  ]
+ },
+ "115": {
+  "name": "KeInsertDeviceQueue",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDEVICE_QUEUE DeviceQueue",
+   "IN PKDEVICE_QUEUE_ENTRY DeviceQueueEntry"
+  ]
+ },
+ "116": {
+  "name": "KeInsertHeadQueue",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKQUEUE Queue",
+   "IN PLIST_ENTRY Entry"
+  ]
+ },
+ "117": {
+  "name": "KeInsertQueue",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKQUEUE Queue",
+   "IN PLIST_ENTRY Entry"
+  ]
+ },
+ "118": {
+  "name": "KeInsertQueueApc",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKAPC Apc",
+   "IN PVOID SystemArgument1",
+   "IN PVOID SystemArgument2",
+   "IN KPRIORITY Increment"
+  ]
+ },
+ "119": {
+  "name": "KeInsertQueueDpc",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDPC        Dpc",
+   "IN PVOID        SystemArgument1",
+   "IN PVOID        SystemArgument2"
+  ]
+ },
+ "120": {
+  "name": "KeInterruptTime",
+  "kind": "var",
+  "type": "KSYSTEM_TIME"
+ },
+ "121": {
+  "name": "KeIsExecutingDpc",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "122": {
+  "name": "KeLeaveCriticalRegion",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "void_xt"
+  ]
+ },
+ "123": {
+  "name": "KePulseEvent",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKEVENT Event",
+   "IN KPRIORITY Increment",
+   "IN boolean_xt Wait"
+  ]
+ },
+ "124": {
+  "name": "KeQueryBasePriorityThread",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD Thread"
+  ]
+ },
+ "125": {
+  "name": "KeQueryInterruptTime",
+  "kind": "func",
+  "ret": "ulonglong_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "126": {
+  "name": "KeQueryPerformanceCounter",
+  "kind": "func",
+  "ret": "ulonglong_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "127": {
+  "name": "KeQueryPerformanceFrequency",
+  "kind": "func",
+  "ret": "ulonglong_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "128": {
+  "name": "KeQuerySystemTime",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PLARGE_INTEGER CurrentTime"
+  ]
+ },
+ "129": {
+  "name": "KeRaiseIrqlToDpcLevel",
+  "kind": "func",
+  "ret": "uchar_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "130": {
+  "name": "KeRaiseIrqlToSynchLevel",
+  "kind": "func",
+  "ret": "uchar_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "131": {
+  "name": "KeReleaseMutant",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKMUTANT Mutant",
+   "IN KPRIORITY Increment",
+   "IN boolean_xt Abandoned",
+   "IN boolean_xt Wait"
+  ]
+ },
+ "132": {
+  "name": "KeReleaseSemaphore",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKSEMAPHORE Semaphore",
+   "IN KPRIORITY Increment",
+   "IN long_xt Adjustment",
+   "IN boolean_xt Wait"
+  ]
+ },
+ "133": {
+  "name": "KeRemoveByKeyDeviceQueue",
+  "kind": "func",
+  "ret": "PKDEVICE_QUEUE_ENTRY",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDEVICE_QUEUE DeviceQueue",
+   "IN ulong_xt SortKey"
+  ]
+ },
+ "134": {
+  "name": "KeRemoveDeviceQueue",
+  "kind": "func",
+  "ret": "PKDEVICE_QUEUE_ENTRY",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDEVICE_QUEUE DeviceQueue"
+  ]
+ },
+ "135": {
+  "name": "KeRemoveEntryDeviceQueue",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDEVICE_QUEUE DeviceQueue",
+   "IN PKDEVICE_QUEUE_ENTRY DeviceQueueEntry"
+  ]
+ },
+ "136": {
+  "name": "KeRemoveQueue",
+  "kind": "func",
+  "ret": "PLIST_ENTRY",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKQUEUE Queue",
+   "IN KPROCESSOR_MODE WaitMode",
+   "IN PLARGE_INTEGER Timeout"
+  ]
+ },
+ "137": {
+  "name": "KeRemoveQueueDpc",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKDPC Dpc"
+  ]
+ },
+ "138": {
+  "name": "KeResetEvent",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKEVENT Event"
+  ]
+ },
+ "139": {
+  "name": "KeRestoreFloatingPointState",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKFLOATING_SAVE     PublicFloatSave"
+  ]
+ },
+ "140": {
+  "name": "KeResumeThread",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD Thread"
+  ]
+ },
+ "141": {
+  "name": "KeRundownQueue",
+  "kind": "func",
+  "ret": "PLIST_ENTRY",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKQUEUE Queue"
+  ]
+ },
+ "142": {
+  "name": "KeSaveFloatingPointState",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PKFLOATING_SAVE     PublicFloatSave"
+  ]
+ },
+ "143": {
+  "name": "KeSetBasePriorityThread",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD  Thread",
+   "IN long_xt\tPriority"
+  ]
+ },
+ "144": {
+  "name": "KeSetDisableBoostThread",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD Thread",
+   "IN boolean_xt Disable"
+  ]
+ },
+ "145": {
+  "name": "KeSetEvent",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKEVENT\t\tEvent",
+   "IN KPRIORITY\tIncrement",
+   "IN boolean_xt\t\tWait"
+  ]
+ },
+ "146": {
+  "name": "KeSetEventBoostPriority",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRKEVENT Event",
+   "IN PRKTHREAD *Thread"
+  ]
+ },
+ "147": {
+  "name": "KeSetPriorityProcess",
+  "kind": "func",
+  "ret": "KPRIORITY",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKPROCESS Process",
+   "IN KPRIORITY BasePriority"
+  ]
+ },
+ "148": {
+  "name": "KeSetPriorityThread",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD  Thread",
+   "IN long_xt  Priority"
+  ]
+ },
+ "149": {
+  "name": "KeSetTimer",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTIMER        Timer",
+   "IN LARGE_INTEGER  DueTime",
+   "IN PKDPC          Dpc OPTIONAL"
+  ]
+ },
+ "150": {
+  "name": "KeSetTimerEx",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTIMER        Timer",
+   "IN LARGE_INTEGER  DueTime",
+   "IN long_xt           Period OPTIONAL",
+   "IN PKDPC          Dpc OPTIONAL"
+  ]
+ },
+ "151": {
+  "name": "KeStallExecutionProcessor",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt MicroSeconds"
+  ]
+ },
+ "152": {
+  "name": "KeSuspendThread",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKTHREAD Thread"
+  ]
+ },
+ "153": {
+  "name": "KeSynchronizeExecution",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PKINTERRUPT Interrupt",
+   "IN PKSYNCHRONIZE_ROUTINE SynchronizeRoutine",
+   "IN PVOID SynchronizeContext"
+  ]
+ },
+ "154": {
+  "name": "KeSystemTime",
+  "kind": "var",
+  "type": "KSYSTEM_TIME"
+ },
+ "155": {
+  "name": "KeTestAlertThread",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN KPROCESSOR_MODE AlertMode"
+  ]
+ },
+ "156": {
+  "name": "KeTickCount",
+  "kind": "var",
+  "type": "volatile dword_xt"
+ },
+ "157": {
+  "name": "KeTimeIncrement",
+  "kind": "var",
+  "type": "ulong_xt"
+ },
+ "158": {
+  "name": "KeWaitForMultipleObjects",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt Count",
+   "IN PVOID Object[]",
+   "IN WAIT_TYPE WaitType",
+   "IN KWAIT_REASON WaitReason",
+   "IN KPROCESSOR_MODE WaitMode",
+   "IN boolean_xt Alertable",
+   "IN PLARGE_INTEGER Timeout OPTIONAL",
+   "IN PKWAIT_BLOCK\tWaitBlockArray  OPTIONAL"
+  ]
+ },
+ "159": {
+  "name": "KeWaitForSingleObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Object",
+   "IN KWAIT_REASON WaitReason",
+   "IN KPROCESSOR_MODE WaitMode",
+   "IN boolean_xt Alertable",
+   "IN PLARGE_INTEGER Timeout OPTIONAL"
+  ]
+ },
+ "102": {
+  "name": "MmGlobalData",
+  "kind": "var",
+  "type": "MMGLOBALDATA"
+ },
+ "165": {
+  "name": "MmAllocateContiguousMemory",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt NumberOfBytes"
+  ]
+ },
+ "166": {
+  "name": "MmAllocateContiguousMemoryEx",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt            NumberOfBytes",
+   "IN physical_address_xt LowestAcceptableAddress",
+   "IN physical_address_xt HighestAcceptableAddress",
+   "IN ulong_xt            Alignment OPTIONAL",
+   "IN ulong_xt            ProtectionType"
+  ]
+ },
+ "167": {
+  "name": "MmAllocateSystemMemory",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "ulong_xt NumberOfBytes",
+   "ulong_xt Protect"
+  ]
+ },
+ "168": {
+  "name": "MmClaimGpuInstanceMemory",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN size_xt NumberOfBytes",
+   "OUT size_xt *NumberOfPaddingBytes"
+  ]
+ },
+ "169": {
+  "name": "MmCreateKernelStack",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt\tNumberOfBytes",
+   "IN boolean_xt\tDebuggerThread"
+  ]
+ },
+ "170": {
+  "name": "MmDeleteKernelStack",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID StackBase",
+   "IN PVOID StackLimit"
+  ]
+ },
+ "171": {
+  "name": "MmFreeContiguousMemory",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID BaseAddress"
+  ]
+ },
+ "172": {
+  "name": "MmFreeSystemMemory",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PVOID BaseAddress",
+   "ulong_xt NumberOfBytes"
+  ]
+ },
+ "173": {
+  "name": "MmGetPhysicalAddress",
+  "kind": "func",
+  "ret": "physical_address_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID   BaseAddress"
+  ]
+ },
+ "174": {
+  "name": "MmIsAddressValid",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID   VirtualAddress"
+  ]
+ },
+ "175": {
+  "name": "MmLockUnlockBufferPages",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID             BaseAddress",
+   "IN size_xt            NumberOfBytes",
+   "IN boolean_xt           UnlockPages"
+  ]
+ },
+ "176": {
+  "name": "MmLockUnlockPhysicalPage",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_ptr_xt PhysicalAddress",
+   "IN boolean_xt UnlockPage"
+  ]
+ },
+ "177": {
+  "name": "MmMapIoSpace",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN physical_address_xt PhysicalAddress",
+   "IN ulong_xt            NumberOfBytes",
+   "IN ulong_xt            ProtectionType"
+  ]
+ },
+ "178": {
+  "name": "MmPersistContiguousMemory",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID   BaseAddress",
+   "IN ulong_xt   NumberOfBytes",
+   "IN boolean_xt Persist"
+  ]
+ },
+ "179": {
+  "name": "MmQueryAddressProtect",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID VirtualAddress"
+  ]
+ },
+ "180": {
+  "name": "MmQueryAllocationSize",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID   BaseAddress"
+  ]
+ },
+ "181": {
+  "name": "MmQueryStatistics",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PMM_STATISTICS MemoryStatistics"
+  ]
+ },
+ "182": {
+  "name": "MmSetAddressProtect",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID BaseAddress",
+   "IN ulong_xt NumberOfBytes",
+   "IN ulong_xt NewProtect"
+  ]
+ },
+ "183": {
+  "name": "MmUnmapIoSpace",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID BaseAddress",
+   "IN ulong_xt NumberOfBytes"
+  ]
+ },
+ "374": {
+  "name": "MmDbgAllocateMemory",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt NumberOfBytes",
+   "IN ulong_xt Protect"
+  ]
+ },
+ "375": {
+  "name": "MmDbgFreeMemory",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID BaseAddress",
+   "IN ulong_xt NumberOfBytes"
+  ]
+ },
+ "376": {
+  "name": "MmDbgQueryAvailablePages",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "377": {
+  "name": "MmDbgReleaseAddress",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID VirtualAddress",
+   "IN PULONG Opaque"
+  ]
+ },
+ "378": {
+  "name": "MmDbgWriteCheck",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID VirtualAddress",
+   "IN PULONG Opaque"
+  ]
+ },
+ "184": {
+  "name": "NtAllocateVirtualMemory",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PVOID    *BaseAddress",
+   "IN ulong_xt         ZeroBits",
+   "IN OUT PULONG    AllocationSize",
+   "IN dword_xt         AllocationType",
+   "IN dword_xt         Protect"
+  ]
+ },
+ "185": {
+  "name": "NtCancelTimer",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE TimerHandle",
+   "OUT PBOOLEAN CurrentState OPTIONAL"
+  ]
+ },
+ "186": {
+  "name": "NtClearEvent",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE EventHandle"
+  ]
+ },
+ "187": {
+  "name": "NtClose",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE Handle"
+  ]
+ },
+ "188": {
+  "name": "NtCreateDirectoryObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             DirectoryHandle",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes"
+  ]
+ },
+ "189": {
+  "name": "NtCreateEvent",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             EventHandle",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes OPTIONAL",
+   "IN  EVENT_TYPE          EventType",
+   "IN  boolean_xt             InitialState"
+  ]
+ },
+ "190": {
+  "name": "NtCreateFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             FileHandle",
+   "IN  access_mask_xt         DesiredAccess",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes",
+   "OUT PIO_STATUS_BLOCK    IoStatusBlock",
+   "IN  PLARGE_INTEGER      AllocationSize OPTIONAL",
+   "IN  ulong_xt               FileAttributes",
+   "IN  ulong_xt               ShareAccess",
+   "IN  ulong_xt               CreateDisposition",
+   "IN  ulong_xt               CreateOptions"
+  ]
+ },
+ "191": {
+  "name": "NtCreateIoCompletion",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE IoCompletionHandle",
+   "IN access_mask_xt DesiredAccess",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes",
+   "IN ulong_xt Count"
+  ]
+ },
+ "192": {
+  "name": "NtCreateMutant",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             MutantHandle",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes",
+   "IN  boolean_xt             InitialOwner"
+  ]
+ },
+ "193": {
+  "name": "NtCreateSemaphore",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             SemaphoreHandle",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes OPTIONAL",
+   "IN  ulong_xt               InitialCount",
+   "IN  ulong_xt               MaximumCount"
+  ]
+ },
+ "194": {
+  "name": "NtCreateTimer",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE TimerHandle",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL",
+   "IN TIMER_TYPE TimerType"
+  ]
+ },
+ "195": {
+  "name": "NtDeleteFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN POBJECT_ATTRIBUTES ObjectAttributes"
+  ]
+ },
+ "196": {
+  "name": "NtDeviceIoControlFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE FileHandle",
+   "IN HANDLE Event OPTIONAL",
+   "IN PIO_APC_ROUTINE ApcRoutine OPTIONAL",
+   "IN PVOID ApcContext OPTIONAL",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "IN ulong_xt IoControlCode",
+   "IN PVOID InputBuffer OPTIONAL",
+   "IN ulong_xt InputBufferLength",
+   "OUT PVOID OutputBuffer OPTIONAL",
+   "IN ulong_xt OutputBufferLength"
+  ]
+ },
+ "197": {
+  "name": "NtDuplicateObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "HANDLE   SourceHandle",
+   "PHANDLE  TargetHandle",
+   "dword_xt Options"
+  ]
+ },
+ "198": {
+  "name": "NtFlushBuffersFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PVOID                FileHandle",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock"
+  ]
+ },
+ "199": {
+  "name": "NtFreeVirtualMemory",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PVOID *BaseAddress",
+   "IN OUT PULONG FreeSize",
+   "IN ulong_xt      FreeType"
+  ]
+ },
+ "200": {
+  "name": "NtFsControlFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE               FileHandle",
+   "IN HANDLE               Event OPTIONAL",
+   "IN PIO_APC_ROUTINE      ApcRoutine OPTIONAL",
+   "IN PVOID                ApcContext OPTIONAL",
+   "OUT PIO_STATUS_BLOCK    IoStatusBlock",
+   "IN ulong_xt                FsControlCode",
+   "IN PVOID                InputBuffer OPTIONAL",
+   "IN ulong_xt                InputBufferLength",
+   "OUT PVOID               OutputBuffer OPTIONAL",
+   "IN ulong_xt                OutputBufferLength"
+  ]
+ },
+ "201": {
+  "name": "NtOpenDirectoryObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE DirectoryHandle",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes"
+  ]
+ },
+ "202": {
+  "name": "NtOpenFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE             FileHandle",
+   "IN  access_mask_xt         DesiredAccess",
+   "IN  POBJECT_ATTRIBUTES  ObjectAttributes",
+   "OUT PIO_STATUS_BLOCK    IoStatusBlock",
+   "IN  ulong_xt               ShareAccess",
+   "IN  ulong_xt               OpenOptions"
+  ]
+ },
+ "203": {
+  "name": "NtOpenSymbolicLinkObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE LinkHandle",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes"
+  ]
+ },
+ "205": {
+  "name": "NtPulseEvent",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE                       EventHandle",
+   "OUT PLONG                       PreviousState OPTIONAL"
+  ]
+ },
+ "206": {
+  "name": "NtQueueApcThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE               ThreadHandle",
+   "IN PIO_APC_ROUTINE      ApcRoutine",
+   "IN PVOID                ApcRoutineContext OPTIONAL",
+   "IN PIO_STATUS_BLOCK     ApcStatusBlock OPTIONAL",
+   "IN PVOID                ApcReserved OPTIONAL"
+  ]
+ },
+ "207": {
+  "name": "NtQueryDirectoryFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE                      FileHandle",
+   "IN  HANDLE                      Event OPTIONAL",
+   "IN  PVOID                       ApcRoutine",
+   "IN  PVOID                       ApcContext",
+   "OUT PIO_STATUS_BLOCK            IoStatusBlock",
+   "OUT FILE_DIRECTORY_INFORMATION *FileInformation",
+   "IN  ulong_xt                       Length",
+   "IN  FILE_INFORMATION_CLASS      FileInformationClass",
+   "IN  PSTRING                     FileMask",
+   "IN  boolean_xt                     RestartScan"
+  ]
+ },
+ "208": {
+  "name": "NtQueryDirectoryObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE DirectoryHandle",
+   "OUT PVOID Buffer",
+   "IN ulong_xt Length",
+   "IN boolean_xt RestartScan",
+   "IN OUT PULONG Context",
+   "OUT PULONG ReturnedLength OPTIONAL"
+  ]
+ },
+ "209": {
+  "name": "NtQueryEvent",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE EventHandle",
+   "OUT PEVENT_BASIC_INFORMATION EventInformation"
+  ]
+ },
+ "210": {
+  "name": "NtQueryFullAttributesFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  POBJECT_ATTRIBUTES          ObjectAttributes",
+   "OUT PFILE_NETWORK_OPEN_INFORMATION  FileInformation"
+  ]
+ },
+ "211": {
+  "name": "NtQueryInformationFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE                      FileHandle",
+   "OUT PIO_STATUS_BLOCK            IoStatusBlock",
+   "OUT PVOID                       FileInformation",
+   "IN  ulong_xt                       Length",
+   "IN  FILE_INFORMATION_CLASS      FileInfo"
+  ]
+ },
+ "212": {
+  "name": "NtQueryIoCompletion",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE IoCompletionHandle",
+   "OUT PIO_COMPLETION_BASIC_INFORMATION IoCompletionInformation"
+  ]
+ },
+ "213": {
+  "name": "NtQueryMutant",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE MutantHandle",
+   "OUT PMUTANT_BASIC_INFORMATION MutantInformation"
+  ]
+ },
+ "214": {
+  "name": "NtQuerySemaphore",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE SemaphoreHandle",
+   "OUT PSEMAPHORE_BASIC_INFORMATION SemaphoreInformation"
+  ]
+ },
+ "215": {
+  "name": "NtQuerySymbolicLinkObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "HANDLE LinkHandle",
+   "OUT PSTRING LinkTarget",
+   "OUT PULONG ReturnedLength OPTIONAL"
+  ]
+ },
+ "216": {
+  "name": "NtQueryTimer",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE TimerHandle",
+   "OUT PTIMER_BASIC_INFORMATION TimerInformation"
+  ]
+ },
+ "217": {
+  "name": "NtQueryVirtualMemory",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PVOID                       BaseAddress",
+   "OUT PMEMORY_BASIC_INFORMATION   Buffer"
+  ]
+ },
+ "218": {
+  "name": "NtQueryVolumeInformationFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE                      FileHandle",
+   "OUT PIO_STATUS_BLOCK            IoStatusBlock",
+   "OUT PFILE_FS_SIZE_INFORMATION   FileInformation",
+   "IN  ulong_xt                       Length",
+   "IN  FS_INFORMATION_CLASS        FileInformationClass"
+  ]
+ },
+ "219": {
+  "name": "NtReadFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE          FileHandle",
+   "IN  HANDLE          Event OPTIONAL",
+   "IN  PIO_APC_ROUTINE ApcRoutine OPTIONAL",
+   "IN  PVOID           ApcContext",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "OUT PVOID           Buffer",
+   "IN  ulong_xt           Length",
+   "IN  PLARGE_INTEGER  ByteOffset OPTIONAL"
+  ]
+ },
+ "220": {
+  "name": "NtReadFileScatter",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE FileHandle",
+   "IN HANDLE Event OPTIONAL",
+   "IN PIO_APC_ROUTINE ApcRoutine OPTIONAL",
+   "IN PVOID ApcContext OPTIONAL",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "IN PFILE_SEGMENT_ELEMENT SegmentArray",
+   "IN ulong_xt Length",
+   "IN PLARGE_INTEGER ByteOffset OPTIONAL"
+  ]
+ },
+ "221": {
+  "name": "NtReleaseMutant",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  MutantHandle",
+   "OUT PLONG   PreviousCount"
+  ]
+ },
+ "222": {
+  "name": "NtReleaseSemaphore",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  SemaphoreHandle",
+   "IN  ulong_xt   ReleaseCount",
+   "OUT PULONG  PreviousCount OPTIONAL"
+  ]
+ },
+ "223": {
+  "name": "NtRemoveIoCompletion",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE IoCompletionHandle",
+   "OUT PVOID *KeyContext",
+   "OUT PVOID *ApcContext",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "IN PLARGE_INTEGER Timeout OPTIONAL"
+  ]
+ },
+ "224": {
+  "name": "NtResumeThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE ThreadHandle",
+   "OUT PULONG PreviousSuspendCount"
+  ]
+ },
+ "225": {
+  "name": "NtSetEvent",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  EventHandle",
+   "OUT PLONG   PreviousState"
+  ]
+ },
+ "226": {
+  "name": "NtSetInformationFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  FileHandle",
+   "OUT PIO_STATUS_BLOCK   IoStatusBlock",
+   "IN  PVOID   FileInformation",
+   "IN  ulong_xt   Length",
+   "IN  FILE_INFORMATION_CLASS   FileInformationClass"
+  ]
+ },
+ "227": {
+  "name": "NtSetIoCompletion",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE IoCompletionHandle",
+   "IN PVOID KeyContext",
+   "IN PVOID ApcContext",
+   "IN ntstatus_xt IoStatus",
+   "IN ulong_ptr_xt IoStatusInformation"
+  ]
+ },
+ "228": {
+  "name": "NtSetSystemTime",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PLARGE_INTEGER\t\t\tSystemTime",
+   "OUT PLARGE_INTEGER\t\t\tPreviousTime OPTIONAL"
+  ]
+ },
+ "229": {
+  "name": "NtSetTimerEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE TimerHandle",
+   "IN PLARGE_INTEGER DueTime",
+   "IN PTIMER_APC_ROUTINE TimerApcRoutine OPTIONAL",
+   "IN KPROCESSOR_MODE ApcMode",
+   "IN PVOID TimerContext OPTIONAL",
+   "IN boolean_xt WakeTimer",
+   "IN long_xt Period OPTIONAL",
+   "OUT PBOOLEAN PreviousState OPTIONAL"
+  ]
+ },
+ "230": {
+  "name": "NtSignalAndWaitForSingleObjectEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE SignalHandle",
+   "IN HANDLE WaitHandle",
+   "IN KPROCESSOR_MODE WaitMode",
+   "IN boolean_xt Alertable",
+   "IN PLARGE_INTEGER Timeout OPTIONAL"
+  ]
+ },
+ "231": {
+  "name": "NtSuspendThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  ThreadHandle",
+   "OUT PULONG  PreviousSuspendCount OPTIONAL"
+  ]
+ },
+ "232": {
+  "name": "NtUserIoApcDispatcher",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PVOID            ApcContext",
+   "PIO_STATUS_BLOCK IoStatusBlock",
+   "ulong_xt            Reserved"
+  ]
+ },
+ "233": {
+  "name": "NtWaitForSingleObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE  Handle",
+   "IN  boolean_xt Alertable",
+   "IN\tPLARGE_INTEGER Timeout"
+  ]
+ },
+ "234": {
+  "name": "NtWaitForSingleObjectEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE          Handle",
+   "IN  char_xt          WaitMode",
+   "IN  boolean_xt         Alertable",
+   "IN  PLARGE_INTEGER  Timeout"
+  ]
+ },
+ "235": {
+  "name": "NtWaitForMultipleObjectsEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  ulong_xt           Count",
+   "IN  HANDLE         *Handles",
+   "IN  WAIT_TYPE       WaitType",
+   "IN  char_xt          WaitMode",
+   "IN  boolean_xt         Alertable",
+   "IN  PLARGE_INTEGER  Timeout"
+  ]
+ },
+ "236": {
+  "name": "NtWriteFile",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  HANDLE          FileHandle",
+   "IN  HANDLE          Event",
+   "IN  PIO_APC_ROUTINE ApcRoutine OPTIONAL",
+   "IN  PVOID           ApcContext OPTIONAL",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "IN  PVOID           Buffer",
+   "IN  ulong_xt           Length",
+   "IN  PLARGE_INTEGER  ByteOffset OPTIONAL"
+  ]
+ },
+ "237": {
+  "name": "NtWriteFileGather",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE FileHandle",
+   "IN HANDLE Event OPTIONAL",
+   "IN PIO_APC_ROUTINE ApcRoutine OPTIONAL",
+   "IN PVOID ApcContext OPTIONAL",
+   "OUT PIO_STATUS_BLOCK IoStatusBlock",
+   "IN PFILE_SEGMENT_ELEMENT SegmentArray",
+   "IN ulong_xt Length",
+   "IN PLARGE_INTEGER ByteOffset OPTIONAL"
+  ]
+ },
+ "238": {
+  "name": "NtYieldExecution",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "239": {
+  "name": "ObCreateObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN POBJECT_TYPE ObjectType",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL",
+   "IN ulong_xt ObjectBodySize",
+   "OUT PVOID *Object"
+  ]
+ },
+ "240": {
+  "name": "ObDirectoryObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "241": {
+  "name": "ObInsertObject",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Object",
+   "IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL",
+   "IN ulong_xt ObjectPointerBias",
+   "OUT PHANDLE Handle"
+  ]
+ },
+ "242": {
+  "name": "ObMakeTemporaryObject",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Object"
+  ]
+ },
+ "243": {
+  "name": "ObOpenObjectByName",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN POBJECT_ATTRIBUTES ObjectAttributes",
+   "IN POBJECT_TYPE ObjectType",
+   "IN OUT PVOID ParseContext OPTIONAL",
+   "OUT PHANDLE Handle"
+  ]
+ },
+ "244": {
+  "name": "ObOpenObjectByPointer",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Object",
+   "IN POBJECT_TYPE ObjectType",
+   "OUT PHANDLE Handle"
+  ]
+ },
+ "245": {
+  "name": "ObpObjectHandleTable",
+  "kind": "var",
+  "type": "OBJECT_HANDLE_TABLE"
+ },
+ "246": {
+  "name": "ObReferenceObjectByHandle",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN HANDLE Handle",
+   "IN POBJECT_TYPE ObjectType OPTIONAL",
+   "OUT PVOID *ReturnedObject"
+  ]
+ },
+ "247": {
+  "name": "ObReferenceObjectByName",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN POBJECT_STRING ObjectName",
+   "IN ulong_xt Attributes",
+   "IN POBJECT_TYPE ObjectType",
+   "IN OUT PVOID ParseContext OPTIONAL",
+   "OUT PVOID *Object"
+  ]
+ },
+ "248": {
+  "name": "ObReferenceObjectByPointer",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Object",
+   "IN POBJECT_TYPE ObjectType"
+  ]
+ },
+ "249": {
+  "name": "ObSymbolicLinkObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "250": {
+  "name": "ObfDereferenceObject",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PVOID Object"
+  ]
+ },
+ "251": {
+  "name": "ObfReferenceObject",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN PVOID Object"
+  ]
+ },
+ "254": {
+  "name": "PsCreateSystemThread",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE         ThreadHandle",
+   "OUT PHANDLE          ThreadId OPTIONAL",
+   "IN  PKSTART_ROUTINE StartRoutine",
+   "IN  PVOID           StartContext",
+   "IN  boolean_xt         DebuggerThread"
+  ]
+ },
+ "255": {
+  "name": "PsCreateSystemThreadEx",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PHANDLE         ThreadHandle",
+   "IN  ulong_xt           ThreadExtensionSize",
+   "IN  ulong_xt           KernelStackSize",
+   "IN  ulong_xt           TlsDataSize",
+   "OUT PHANDLE          ThreadId OPTIONAL",
+   "IN  PKSTART_ROUTINE StartRoutine",
+   "IN  PVOID           StartContext",
+   "IN  boolean_xt         CreateSuspended",
+   "IN  boolean_xt         DebuggerThread",
+   "IN  PKSYSTEM_ROUTINE SystemRoutine OPTIONAL"
+  ]
+ },
+ "256": {
+  "name": "PsQueryStatistics",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PPS_STATISTICS ProcessStatistics"
+  ]
+ },
+ "257": {
+  "name": "PsSetCreateThreadNotifyRoutine",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PCREATE_THREAD_NOTIFY_ROUTINE NotifyRoutine"
+  ]
+ },
+ "258": {
+  "name": "PsTerminateSystemThread",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ntstatus_xt ExitStatus"
+  ]
+ },
+ "259": {
+  "name": "PsThreadObjectType",
+  "kind": "var",
+  "type": "OBJECT_TYPE"
+ },
+ "260": {
+  "name": "RtlAnsiStringToUnicodeString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PUNICODE_STRING DestinationString",
+   "PSTRING         SourceString",
+   "uchar_xt           AllocateDestinationString"
+  ]
+ },
+ "261": {
+  "name": "RtlAppendStringToString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PSTRING    Destination",
+   "IN PSTRING    Source"
+  ]
+ },
+ "262": {
+  "name": "RtlAppendUnicodeStringToString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PUNICODE_STRING Destination",
+   "IN PUNICODE_STRING Source"
+  ]
+ },
+ "263": {
+  "name": "RtlAppendUnicodeToString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PUNICODE_STRING Destination",
+   "IN LPCWSTR Source"
+  ]
+ },
+ "264": {
+  "name": "RtlAssert",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PCHAR   FailedAssertion",
+   "PCHAR   FileName",
+   "ulong_xt   LineNumber",
+   "PCHAR   Message"
+  ]
+ },
+ "265": {
+  "name": "RtlCaptureContext",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PCONTEXT ContextRecord"
+  ]
+ },
+ "266": {
+  "name": "RtlCaptureStackBackTrace",
+  "kind": "func",
+  "ret": "ushort_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt FramesToSkip",
+   "IN ulong_xt FramesToCapture",
+   "OUT PVOID *BackTrace",
+   "OUT PULONG BackTraceHash"
+  ]
+ },
+ "267": {
+  "name": "RtlCharToInteger",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN     PCSZ   String",
+   "IN     ulong_xt  Base OPTIONAL",
+   "OUT    PULONG Value"
+  ]
+ },
+ "268": {
+  "name": "RtlCompareMemory",
+  "kind": "func",
+  "ret": "size_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN CONST void_xt *Source1",
+   "IN CONST void_xt *Source2",
+   "IN size_xt      Length"
+  ]
+ },
+ "269": {
+  "name": "RtlCompareMemoryUlong",
+  "kind": "func",
+  "ret": "size_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Source",
+   "IN size_xt Length",
+   "IN ulong_xt Pattern"
+  ]
+ },
+ "270": {
+  "name": "RtlCompareString",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PSTRING String1",
+   "IN PSTRING String2",
+   "IN boolean_xt CaseInSensitive"
+  ]
+ },
+ "271": {
+  "name": "RtlCompareUnicodeString",
+  "kind": "func",
+  "ret": "long_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUNICODE_STRING String1",
+   "IN PUNICODE_STRING String2",
+   "IN boolean_xt CaseInSensitive"
+  ]
+ },
+ "272": {
+  "name": "RtlCopyString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PSTRING DestinationString",
+   "IN PSTRING SourceString OPTIONAL"
+  ]
+ },
+ "273": {
+  "name": "RtlCopyUnicodeString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PUNICODE_STRING DestinationString",
+   "IN PUNICODE_STRING SourceString OPTIONAL"
+  ]
+ },
+ "274": {
+  "name": "RtlCreateUnicodeString",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PUNICODE_STRING DestinationString",
+   "IN PCWSTR SourceString"
+  ]
+ },
+ "275": {
+  "name": "RtlDowncaseUnicodeChar",
+  "kind": "func",
+  "ret": "wchar_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN wchar_xt SourceCharacter"
+  ]
+ },
+ "276": {
+  "name": "RtlDowncaseUnicodeString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PUNICODE_STRING DestinationString",
+   "IN PUNICODE_STRING SourceString",
+   "IN boolean_xt AllocateDestinationString"
+  ]
+ },
+ "277": {
+  "name": "RtlEnterCriticalSection",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "278": {
+  "name": "RtlEnterCriticalSectionAndRegion",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "279": {
+  "name": "RtlEqualString",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PSTRING String1",
+   "IN PSTRING String2",
+   "IN boolean_xt CaseInsensitive"
+  ]
+ },
+ "280": {
+  "name": "RtlEqualUnicodeString",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUNICODE_STRING String1",
+   "IN PUNICODE_STRING String2",
+   "IN boolean_xt CaseInSensitive"
+  ]
+ },
+ "281": {
+  "name": "RtlExtendedIntegerMultiply",
+  "kind": "func",
+  "ret": "LARGE_INTEGER",
+  "cc": "NTAPI",
+  "args": [
+   "IN LARGE_INTEGER Multiplicand",
+   "IN long_xt Multiplier"
+  ]
+ },
+ "282": {
+  "name": "RtlExtendedLargeIntegerDivide",
+  "kind": "func",
+  "ret": "LARGE_INTEGER",
+  "cc": "NTAPI",
+  "args": [
+   "IN\tLARGE_INTEGER Dividend",
+   "IN\tulong_xt Divisor",
+   "IN\tPULONG Remainder"
+  ]
+ },
+ "283": {
+  "name": "RtlExtendedMagicDivide",
+  "kind": "func",
+  "ret": "LARGE_INTEGER",
+  "cc": "NTAPI",
+  "args": [
+   "IN\tLARGE_INTEGER Dividend",
+   "IN\tLARGE_INTEGER MagicDivisor",
+   "IN\tcchar_xt ShiftCount"
+  ]
+ },
+ "284": {
+  "name": "RtlFillMemory",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN void_xt UNALIGNED *Destination",
+   "IN dword_xt Length",
+   "IN byte_xt  Fill"
+  ]
+ },
+ "285": {
+  "name": "RtlFillMemoryUlong",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID Destination",
+   "IN size_xt Length",
+   "IN ulong_xt Pattern"
+  ]
+ },
+ "286": {
+  "name": "RtlFreeAnsiString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PANSI_STRING AnsiString"
+  ]
+ },
+ "287": {
+  "name": "RtlFreeUnicodeString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PUNICODE_STRING UnicodeString"
+  ]
+ },
+ "288": {
+  "name": "RtlGetCallersAddress",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PVOID *CallersAddress",
+   "OUT PVOID *CallersCaller"
+  ]
+ },
+ "289": {
+  "name": "RtlInitAnsiString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PANSI_STRING DestinationString",
+   "IN     PCSZ         SourceString"
+  ]
+ },
+ "290": {
+  "name": "RtlInitUnicodeString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PUNICODE_STRING DestinationString",
+   "IN     PCWSTR          SourceString"
+  ]
+ },
+ "291": {
+  "name": "RtlInitializeCriticalSection",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "292": {
+  "name": "RtlIntegerToChar",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt Value",
+   "IN ulong_xt Base",
+   "IN long_xt OutputLength",
+   "IN PSZ String"
+  ]
+ },
+ "293": {
+  "name": "RtlIntegerToUnicodeString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN     ulong_xt Value",
+   "IN     ulong_xt Base",
+   "IN     PUNICODE_STRING String"
+  ]
+ },
+ "294": {
+  "name": "RtlLeaveCriticalSection",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "295": {
+  "name": "RtlLeaveCriticalSectionAndRegion",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "296": {
+  "name": "RtlLowerChar",
+  "kind": "func",
+  "ret": "char_xt",
+  "cc": "NTAPI",
+  "args": [
+   "char_xt Character"
+  ]
+ },
+ "297": {
+  "name": "RtlMapGenericMask",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PACCESS_MASK AccessMask",
+   "IN PGENERIC_MAPPING GenericMapping"
+  ]
+ },
+ "298": {
+  "name": "RtlMoveMemory",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN void_xt UNALIGNED       *Destination",
+   "IN CONST void_xt UNALIGNED *Source",
+   "IN size_xt                Length"
+  ]
+ },
+ "299": {
+  "name": "RtlMultiByteToUnicodeN",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN     PWSTR UnicodeString",
+   "IN     ulong_xt MaxBytesInUnicodeString",
+   "IN     PULONG BytesInUnicodeString",
+   "IN     PCHAR MultiByteString",
+   "IN     ulong_xt BytesInMultiByteString"
+  ]
+ },
+ "300": {
+  "name": "RtlMultiByteToUnicodeSize",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PULONG BytesInUnicodeString",
+   "IN PCHAR MultiByteString",
+   "IN ulong_xt BytesInMultiByteString"
+  ]
+ },
+ "301": {
+  "name": "RtlNtStatusToDosError",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ntstatus_xt Status"
+  ]
+ },
+ "302": {
+  "name": "RtlRaiseException",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PEXCEPTION_RECORD ExceptionRecord"
+  ]
+ },
+ "303": {
+  "name": "RtlRaiseStatus",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ntstatus_xt Status"
+  ]
+ },
+ "304": {
+  "name": "RtlTimeFieldsToTime",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PTIME_FIELDS    TimeFields",
+   "OUT PLARGE_INTEGER  Time"
+  ]
+ },
+ "305": {
+  "name": "RtlTimeToTimeFields",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PLARGE_INTEGER  Time",
+   "OUT PTIME_FIELDS    TimeFields"
+  ]
+ },
+ "306": {
+  "name": "RtlTryEnterCriticalSection",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PRTL_CRITICAL_SECTION CriticalSection"
+  ]
+ },
+ "307": {
+  "name": "RtlUlongByteSwap",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN ulong_xt Source"
+  ]
+ },
+ "308": {
+  "name": "RtlUnicodeStringToAnsiString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PSTRING         DestinationString",
+   "IN     PUNICODE_STRING SourceString",
+   "IN     boolean_xt         AllocateDestinationString"
+  ]
+ },
+ "309": {
+  "name": "RtlUnicodeStringToInteger",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN     PUNICODE_STRING String",
+   "IN     ulong_xt Base",
+   "IN     PULONG Value"
+  ]
+ },
+ "310": {
+  "name": "RtlUnicodeToMultiByteN",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PCHAR MultiByteString",
+   "IN ulong_xt MaxBytesInMultiByteString",
+   "IN PULONG BytesInMultiByteString",
+   "IN PWSTR UnicodeString",
+   "IN ulong_xt BytesInUnicodeString"
+  ]
+ },
+ "311": {
+  "name": "RtlUnicodeToMultiByteSize",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PULONG BytesInMultiByteString",
+   "IN PWSTR UnicodeString",
+   "IN ulong_xt BytesInUnicodeString"
+  ]
+ },
+ "312": {
+  "name": "RtlUnwind",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID TargetFrame OPTIONAL",
+   "IN PVOID TargetIp OPTIONAL",
+   "IN PEXCEPTION_RECORD ExceptionRecord OPTIONAL",
+   "IN PVOID ReturnValue"
+  ]
+ },
+ "313": {
+  "name": "RtlUpcaseUnicodeChar",
+  "kind": "func",
+  "ret": "wchar_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN wchar_xt SourceCharacter"
+  ]
+ },
+ "314": {
+  "name": "RtlUpcaseUnicodeString",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PUNICODE_STRING DestinationString",
+   "IN  PUNICODE_STRING SourceString",
+   "IN  boolean_xt AllocateDestinationString"
+  ]
+ },
+ "315": {
+  "name": "RtlUpcaseUnicodeToMultiByteN",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN OUT PCHAR MultiByteString",
+   "IN ulong_xt MaxBytesInMultiByteString",
+   "IN PULONG BytesInMultiByteString",
+   "IN PWSTR UnicodeString",
+   "IN ulong_xt BytesInUnicodeString"
+  ]
+ },
+ "316": {
+  "name": "RtlUpperChar",
+  "kind": "func",
+  "ret": "char_xt",
+  "cc": "NTAPI",
+  "args": [
+   "char_xt Character"
+  ]
+ },
+ "317": {
+  "name": "RtlUpperString",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PSTRING DestinationString",
+   "IN  PSTRING SourceString"
+  ]
+ },
+ "318": {
+  "name": "RtlUshortByteSwap",
+  "kind": "func",
+  "ret": "ushort_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN ushort_xt Source"
+  ]
+ },
+ "319": {
+  "name": "RtlWalkFrameChain",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PVOID *Callers",
+   "IN ulong_xt Count",
+   "IN ulong_xt Flags"
+  ]
+ },
+ "320": {
+  "name": "RtlZeroMemory",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN void_xt UNALIGNED  *Destination",
+   "IN size_xt           Length"
+  ]
+ },
+ "352": {
+  "name": "RtlRip",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "PCHAR\tApiName",
+   "PCHAR\tExpression",
+   "PCHAR\tMessage"
+  ]
+ },
+ "1": {
+  "name": "AvGetSavedDataAddress",
+  "kind": "func",
+  "ret": "PVOID",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "2": {
+  "name": "AvSendTVEncoderOption",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN  PVOID   RegisterBase",
+   "IN  ulong_xt   Option",
+   "IN  ulong_xt   Param",
+   "OUT ulong_xt   *Result"
+  ]
+ },
+ "3": {
+  "name": "AvSetDisplayMode",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID    RegisterBase",
+   "IN ulong_xt    Step",
+   "IN ulong_xt    Mode",
+   "IN ulong_xt    Format",
+   "IN ulong_xt    Pitch",
+   "IN ulong_xt    FrameBuffer"
+  ]
+ },
+ "4": {
+  "name": "AvSetSavedDataAddress",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PVOID    Address"
+  ]
+ },
+ "35": {
+  "name": "FscGetCacheSize",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "36": {
+  "name": "FscInvalidateIdleBlocks",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "37": {
+  "name": "FscSetCacheSize",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "ulong_xt NumberOfCachePages"
+  ]
+ },
+ "88": {
+  "name": "KdDebuggerEnabled",
+  "kind": "var",
+  "type": "boolean_xt"
+ },
+ "89": {
+  "name": "KdDebuggerNotPresent",
+  "kind": "var",
+  "type": "boolean_xt"
+ },
+ "160": {
+  "name": "KfRaiseIrql",
+  "kind": "func",
+  "ret": "uchar_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN uchar_xt    NewIrql"
+  ]
+ },
+ "161": {
+  "name": "KfLowerIrql",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN uchar_xt    NewIrql"
+  ]
+ },
+ "163": {
+  "name": "KiUnlockDispatcherDatabase",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "FASTCALL",
+  "args": [
+   "IN KIRQL OldIrql"
+  ]
+ },
+ "164": {
+  "name": "LaunchDataPage",
+  "kind": "var",
+  "type": "PLAUNCH_DATA_PAGE"
+ },
+ "252": {
+  "name": "PhyGetLinkState",
+  "kind": "func",
+  "ret": "dword_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt\tMode"
+  ]
+ },
+ "253": {
+  "name": "PhyInitialize",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt\tforceReset",
+   "IN PVOID\tParameter2"
+  ]
+ },
+ "322": {
+  "name": "XboxHardwareInfo",
+  "kind": "var",
+  "type": "XBOX_HARDWARE_INFO"
+ },
+ "324": {
+  "name": "XboxKrnlVersion",
+  "kind": "var",
+  "type": "XBOX_KRNL_VERSION"
+ },
+ "326": {
+  "name": "XeImageFileName",
+  "kind": "var",
+  "type": "OBJECT_STRING"
+ },
+ "327": {
+  "name": "XeLoadSection",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PXBEIMAGE_SECTION Section"
+  ]
+ },
+ "328": {
+  "name": "XeUnloadSection",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PXBEIMAGE_SECTION Section"
+  ]
+ },
+ "335": {
+  "name": "XcSHAInit",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbSHAContext"
+  ]
+ },
+ "336": {
+  "name": "XcSHAUpdate",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbSHAContext",
+   "IN PUCHAR pbInput",
+   "IN ulong_xt dwInputLength"
+  ]
+ },
+ "337": {
+  "name": "XcSHAFinal",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbSHAContext",
+   "IN PUCHAR pbDigest"
+  ]
+ },
+ "338": {
+  "name": "XcRC4Key",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbKeyStruct",
+   "IN ulong_xt dwKeyLength",
+   "IN PUCHAR pbKey"
+  ]
+ },
+ "339": {
+  "name": "XcRC4Crypt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbKeyStruct",
+   "IN ulong_xt dwInputLength",
+   "IN PUCHAR pbInput"
+  ]
+ },
+ "340": {
+  "name": "XcHMAC",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PBYTE pbKeyMaterial",
+   "IN ulong_xt cbKeyMaterial",
+   "IN PBYTE pbData",
+   "IN ulong_xt cbData",
+   "IN PBYTE pbData2",
+   "IN ulong_xt cbData2",
+   "OUT PBYTE HmacData"
+  ]
+ },
+ "341": {
+  "name": "XcPKEncPublic",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbPubKey",
+   "IN PUCHAR pbInput",
+   "OUT PUCHAR pbOutput"
+  ]
+ },
+ "342": {
+  "name": "XcPKDecPrivate",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbPrvKey",
+   "IN PUCHAR pbInput",
+   "OUT PUCHAR pbOutput"
+  ]
+ },
+ "343": {
+  "name": "XcPKGetKeyLen",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "OUT PUCHAR pbPubKey"
+  ]
+ },
+ "344": {
+  "name": "XcVerifyPKCS1Signature",
+  "kind": "func",
+  "ret": "boolean_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbSig",
+   "IN PUCHAR pbPubKey",
+   "IN PUCHAR pbDigest"
+  ]
+ },
+ "345": {
+  "name": "XcModExp",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN LPDWORD pA",
+   "IN LPDWORD pB",
+   "IN LPDWORD pC",
+   "IN LPDWORD pD",
+   "IN ulong_xt dwN"
+  ]
+ },
+ "346": {
+  "name": "XcDESKeyParity",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PUCHAR pbKey",
+   "IN ulong_xt dwKeyLength"
+  ]
+ },
+ "347": {
+  "name": "XcKeyTable",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt dwCipher",
+   "OUT PUCHAR pbKeyTable",
+   "IN PUCHAR pbKey"
+  ]
+ },
+ "348": {
+  "name": "XcBlockCrypt",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt dwCipher",
+   "OUT PUCHAR pbOutput",
+   "IN PUCHAR pbInput",
+   "IN PUCHAR pbKeyTable",
+   "IN ulong_xt dwOp"
+  ]
+ },
+ "349": {
+  "name": "XcBlockCryptCBC",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt dwCipher",
+   "IN ulong_xt dwInputLength",
+   "OUT PUCHAR pbOutput",
+   "IN PUCHAR pbInput",
+   "IN PUCHAR pbKeyTable",
+   "IN ulong_xt dwOp",
+   "IN PUCHAR pbFeedback"
+  ]
+ },
+ "350": {
+  "name": "XcCryptService",
+  "kind": "func",
+  "ret": "ulong_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN ulong_xt dwOp",
+   "IN PVOID pArgs"
+  ]
+ },
+ "351": {
+  "name": "XcUpdateCrypto",
+  "kind": "func",
+  "ret": "void_xt",
+  "cc": "NTAPI",
+  "args": [
+   "IN PCRYPTO_VECTOR pNewVector",
+   "OUT PCRYPTO_VECTOR pROMVector OPTIONAL"
+  ]
+ },
+ "353": {
+  "name": "XboxLANKey",
+  "kind": "var",
+  "type": "XBOX_KEY_DATA"
+ },
+ "357": {
+  "name": "IdexChannelObject",
+  "kind": "var",
+  "type": "IDE_CHANNEL_OBJECT"
+ },
+ "361": {
+  "name": "RtlSnprintf",
+  "kind": "func",
+  "ret": "int_xt",
+  "cc": "CDECL",
+  "args": [
+   "IN PCHAR string",
+   "IN size_xt count",
+   "IN LPCCH format",
+   "..."
+  ]
+ },
+ "362": {
+  "name": "RtlSprintf",
+  "kind": "func",
+  "ret": "int_xt",
+  "cc": "CDECL",
+  "args": [
+   "IN PCHAR string",
+   "IN LPCCH format",
+   "..."
+  ]
+ },
+ "363": {
+  "name": "RtlVsnprintf",
+  "kind": "func",
+  "ret": "int_xt",
+  "cc": "CDECL",
+  "args": [
+   "IN PCHAR string",
+   "IN size_xt count",
+   "IN LPCCH format",
+   "..."
+  ]
+ },
+ "364": {
+  "name": "RtlVsprintf",
+  "kind": "func",
+  "ret": "int_xt",
+  "cc": "CDECL",
+  "args": [
+   "IN PCHAR string",
+   "IN LPCCH format",
+   "..."
+  ]
+ },
+ "367": {
+  "name": "UnknownAPI367",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "368": {
+  "name": "UnknownAPI368",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": []
+ },
+ "369": {
+  "name": "UnknownAPI369",
+  "kind": "func",
+  "ret": "ntstatus_xt",
+  "cc": "NTAPI",
+  "args": []
+ }
+}

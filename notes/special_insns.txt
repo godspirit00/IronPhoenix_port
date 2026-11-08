@@ -1,0 +1,183 @@
+== fs: 3722
+  1348 .text    mov dword ptr fs:[0], ecx   0x11b8c 0x11cd0 0x12455 0x124b2
+  1061 .text    mov eax, dword ptr fs:[0]   0x11a9a 0x11bda 0x12417 0x12467
+  1058 .text    mov dword ptr fs:[0], esp   0x11aa1 0x11be1 0x1241e 0x1246e
+    63 XGRPH    mov dword ptr fs:[0], ecx   0x245058 0x246609 0x2466b8 0x246767
+    10 .text    mov eax, dword ptr fs:[0x20]   0x10b7e9 0x10bf8c 0x10f6bb 0x110130
+    10 WMADEC   add byte ptr fs:[ebp], ah   0x28f520 0x28fc90 0x290360 0x2904ca
+     8 .text    mov eax, dword ptr fs:[0x28]   0x10b835 0x10b90e 0x10b92b 0x10f6d7
+     7 XGRPH    add byte ptr fs:[eax], al   0x258fa7 0x25910a 0x259827 0x25b17d
+     7 XGRPH    and byte ptr fs:[ecx + 0x6e], ch   0x25a2dc 0x25a308 0x25aaf8 0x25ab24
+     7 DOLBY    add byte ptr fs:[edx + 1], ah   0x4a22d2 0x4a22fa 0x4a2322 0x4a236a
+     6 .text    mov dword ptr fs:[0], eax   0x2074b8 0x207606 0x207656 0x20785b
+     5 .text    movzx eax, byte ptr fs:[0x24]   0x10b902 0x10f797 0x10f7bf 0x20d08b
+     5 .text    mov ecx, dword ptr fs:[4]   0x10f7ae 0x10f7d1 0x20d0b2 0x20d1fc
+     5 DOLBY    add byte ptr fs:[eax], al   0x4a2c6a 0x4a899a 0x4a89ca 0x4a8caa
+     4 .text    mov eax, dword ptr fs:[0x58]   0x1adda5 0x1adf48 0x1aefdf 0x1af3b6
+     4 XACTENG  movzx eax, byte ptr fs:[0x24]   0x2bc1e0 0x2bc7c2 0x2bf77a 0x2c2d7a
+     4 XON_RD   imul esi, dword ptr fs:[ebx + 0x6b], 0x61705c30   0x4a9604 0x4a9638 0x4a9b78 0x4a9bb4
+     3 XGRPH    outsd dx, dword ptr fs:[esi]   0x25902f 0x259087 0x2590cb
+     3 DSOUND   movzx eax, byte ptr fs:[0x24]   0x25c913 0x25cb1e 0x262246
+     3 XMV      add byte ptr fs:[eax + eax + 0x64], ah   0x2a14ce 0x2ad4ca 0x2b9c7a
+     2 .text    mov ebx, dword ptr fs:[0]   0x2074af 0x20763c
+     2 .text    mov dword ptr fs:[0], ebx   0x20751c 0x20764a
+     2 XGRPH    and byte ptr fs:[ecx + 0x74], ch   0x2595b2 0x259652
+     2 XGRPH    and byte ptr fs:[edi + 0x72], ah   0x259607 0x2596a7
+     2 XGRPH    and byte ptr fs:[edx + esi*2 + 0x79], dh   0x259866 0x2598b8
+     2 XGRPH    and byte ptr fs:[0x2d2d2d2d], ch   0x25a690 0x25add5
+     2 XGRPH    sub dword ptr fs:[ebx], edi   0x25a769 0x25aeb5
+     2 XGRPH    sub dword ptr fs:[ecx], ebp   0x25a812 0x25af62
+     2 XGRPH    imul esi, dword ptr fs:[edx + 0x65], 0x76697463   0x25b3f9 0x25bb9d
+     2 XGRPH    and byte ptr fs:[edi + 0x69], dh   0x25b563 0x25b6f7
+     2 XGRPH    outsb dx, byte ptr fs:[esi]   0x25b638 0x25bad0
+     2 DSOUND   mov eax, dword ptr fs:[0x58]   0x25c949 0x25c96e
+     2 XMV      add esp, dword ptr fs:[ebx + eax + 0x74]   0x29f208 0x2b4614
+     2 XMV      sub al, byte ptr fs:[eax]   0x2bbdb9 0x2bbdd9
+     2 XNET     mov eax, dword ptr fs:[0x20]   0x2d09d5 0x2d6f61
+     2 DOLBY    add byte ptr fs:[ebx + ecx], dh   0x4a66b2 0x4a69e6
+     2 XON_RD   add byte ptr fs:[eax], al   0x4a927c 0x4aa877
+     2 XON_RD   add byte ptr fs:[ecx], al   0x4a9b42 0x4a9b4c
+     2 XON_RD   imul esi, dword ptr fs:[ebx + 0x63], 0x7265766f   0x4aa06d 0x4aa0f6
+     1 .text    ltr word ptr fs:[eax]   0xf6a8d
+     1 .text    mov edi, dword ptr fs:[4]   0x10f6dd
+     1 .text    mov esi, dword ptr fs:[0]   0x2074e0
+     1 .text    mov edi, dword ptr fs:[0]   0x207510
+     1 .text    push dword ptr fs:[0]   0x2078cd
+     1 .text    pop dword ptr fs:[0]   0x207918
+     1 .text    mov ecx, dword ptr fs:[0]   0x207928
+     1 .text    cmp esi, dword ptr fs:[0]   0x208d1d
+     1 D3D      mov eax, dword ptr fs:[0x20]   0x22ead5
+     1 D3D      cmp ah, byte ptr fs:[eax]   0x237d14
+     1 D3D      and byte ptr fs:[ecx + 0x6e], ah   0x237d3c
+     1 D3D      and byte ptr fs:[ecx + ebp*2 + 0x6d], dh   0x238032
+     1 D3DX     and byte ptr fs:[ecx + ebp*2 + 0x63], ah   0x23bced
+     1 D3DX     add byte ptr fs:[eax], al   0x23c231
+     1 XGRPH    imul esp, dword ptr fs:[ecx + 0x74], 0x20796c65   0x258fff
+     1 XGRPH    add byte ptr fs:[ebx + 0x74], dh   0x25906d
+     1 XGRPH    add byte ptr fs:[ebx + 0x68], dh   0x2590c5
+     1 XGRPH    cmp ah, byte ptr fs:[eax]   0x259782
+     1 XGRPH    add byte ptr fs:[ebp + 0x75], ch   0x2597be
+     1 XGRPH    and byte ptr fs:[esi + 0x72], ah   0x259833
+     1 XGRPH    and byte ptr fs:[0x6c732064], ah   0x259910
+== priv: 2483
+   478 DOLBY    hlt    0x4a1d55 0x4a1d65 0x4a1d71 0x4a1da1
+   169 XGRPH    outsb dx, byte ptr [esi]   0x258edd 0x258f8c 0x258fd0 0x25905d
+   140 XGRPH    outsd dx, dword ptr [esi]   0x258f0a 0x258f25 0x258f70 0x258fb4
+   101 XGRPH    insb byte ptr es:[edi], dx   0x258ec3 0x258ec4 0x258ed5 0x258ed6
+    93 XON_RD   outsb dx, byte ptr [esi]   0x4a91c7 0x4a91cb 0x4a921f 0x4a9223
+    85 XGRPH    insd dword ptr es:[edi], dx   0x258f71 0x258fb5 0x258ff1 0x25903c
+    60 WMADEC   outsb dx, byte ptr [esi]   0x286598 0x28671c 0x2877a2 0x287844
+    54 WMADEC   insb byte ptr es:[edi], dx   0x28616b 0x28619b 0x2861ab 0x286bf0
+    50 XON_RD   outsd dx, dword ptr [esi]   0x4a905d 0x4a9071 0x4a9240 0x4a9249
+    48 WMADEC   insd dword ptr es:[edi], dx   0x28672a 0x286bf4 0x287022 0x28728c
+    48 XON_RD   insb byte ptr es:[edi], dx   0x4a902f 0x4a926b 0x4a9283 0x4a929b
+    44 XMV      hlt    0x29f288 0x29f450 0x29f5e0 0x29f8d0
+    41 WMADEC   outsd dx, dword ptr [esi]   0x286730 0x286b88 0x286e58 0x287f7e
+    40 WMADEC   sti    0x2861ec 0x286da2 0x287b5e 0x28814c
+    39 DSOUND   hlt    0x279690 0x279ae0 0x279c50 0x27a370
+    38 WMADEC   in eax, dx   0x287032 0x287940 0x28796a 0x288a84
+    37 WMADEC   in al, dx   0x286986 0x28800a 0x288130 0x288a24
+    37 WMADEC   out dx, al   0x286c3c 0x287660 0x28774e 0x288422
+    32 XMV      in al, 7   0x2a102a 0x2a102c 0x2a102e 0x2a1030
+    31 WMADEC   cli    0x286a3c 0x287452 0x2876ee 0x28799c
+    29 WMADEC   hlt    0x286930 0x286ffa 0x287250 0x287290
+    27 XGRPH    outsb dx, byte ptr gs:[esi]   0x2595f6 0x259696 0x259825 0x2599ed
+    25 DOLBY    out dx, al   0x4a26b0 0x4a2bf1 0x4a2bf9 0x4a2c09
+    23 D3D      insb byte ptr es:[edi], dx   0x236f58 0x236f68 0x236f78 0x236f88
+    23 XON_RD   insd dword ptr es:[edi], dx   0x4a905b 0x4a906f 0x4a90f6 0x4a917a
+    22 WMADEC   out dx, eax   0x286237 0x286d84 0x2872f6 0x287f0a
+    19 .text    in al, dx   0x745d1 0x811e8 0xa2e14 0x11a300
+    16 DSOUND   wbinvd    0x26873c 0x26bac3 0x26c184 0x26ccfe
+    14 .text    sti    0x5fca5 0x5fcad 0x102bf0 0x1113a4
+    14 DOLBY    in al, 0x21   0x4a540d 0x4a5445 0x4a548d 0x4a54d5
+    13 .text    cli    0xffb91 0xffbb1 0xffbd5 0xffbd9
+    11 .text    outsd dx, dword ptr [esi]   0xaaa08 0xf771d 0x10ae88 0x148590
+    11 DSOUND   outsb dx, byte ptr [esi]   0x2796d2 0x279710 0x279802 0x279eac
+    10 .text    outsb dx, byte ptr [esi]   0x89e48 0xf83b8 0x1013bc 0x139a9c
+     9 XMV      out 2, eax   0x29d7e6 0x2b5f12 0x2b5f14 0x2b5f16
+     8 .text    hlt    0x491c4 0x984b4 0xaaa30 0xcf12c
+     8 XGRPH    insd dword ptr es:[di], dx   0x2599e4 0x2599eb 0x259a02 0x259a2d
+     8 XMV      out 1, eax   0x2a51f2 0x2a51f4 0x2a51f6 0x2a51f8
+     8 XON_RD   outsb dx, byte ptr gs:[esi]   0x4a927a 0x4a9572 0x4a9c6d 0x4a9ca5
+     7 .text    insd dword ptr es:[edi], dx   0x4e484 0x85350 0x853a4 0x9afac
+     7 D3D      out dx, eax   0x22ef8d 0x22ef91 0x22ef9d 0x22efa5
+     7 D3D      outsd dx, dword ptr [esi]   0x2371cd 0x23722c 0x237cf6 0x237d13
+     7 D3DX     insd dword ptr es:[edi], dx   0x23bdcf 0x23beae 0x23c086 0x23c1f9
+     6 .text    insb byte ptr es:[edi], dx   0x81980 0x961d0 0xe6c81 0xf55f8
+     6 .text    out dx, eax   0x81988 0x8effd 0x1013b4 0x13c0ac
+     6 .text    out dx, al   0x8efed 0x8eff5 0x131168 0x194bc8
+     6 D3DX     insb byte ptr es:[edi], dx   0x23bded 0x23bebe 0x23becb 0x23bf75
+     6 DSOUND   insb byte ptr es:[edi], dx   0x267edc 0x267f55 0x27974e 0x27978c
+     6 DSOUND   in al, dx   0x267f82 0x279698 0x279788 0x279a68
+     6 DSOUND   out dx, al   0x27974a 0x27999a 0x2799d8 0x27a4e4
+     6 XMV      in al, 4   0x2a18d8 0x2a18da 0x2a18dc 0x2a18de
+     6 DOLBY    in eax, 0x56   0x4a3ced 0x4a3d51 0x4a3d5d 0x4a3d99
+     6 DOLBY    outsb dx, byte ptr [esi]   0x4a5474 0x4a54bc 0x4a5a65 0x4a5a79
+     5 D3D      in eax, dx   0x22ede9 0x22eded 0x22edf9 0x22edfd
+     5 D3D      outsb dx, byte ptr [esi]   0x234c74 0x237d36 0x237e95 0x237ed0
+     5 WMADEC   in al, 0xbe   0x28b6f6 0x28b6fa 0x28d23e 0x28dfe2
+     5 XMV      out 0, eax   0x29dbb2 0x29dbb4 0x29dbb6 0x29dbb8
+     5 XMV      in al, 2   0x2a0050 0x2a0052 0x2a2c84 0x2a530c
+     5 XACTENG  sti    0x2c79d9 0x2c79e1 0x2c79f9 0x2c79fd
+     5 DOLBY    cli    0x4a1d7d 0x4a26b9 0x4a66f5 0x4a69ad
+== mmio: 425
+    15 DSOUND   mov edx, dword ptr [0xfe820010]   0x261451 0x261d14 0x261dc7 0x263066
+    11 DSOUND   mov dword ptr [0xfe8202fc], 0   0x26149a 0x263baa 0x263d3a 0x263e84
+    10 DSOUND   mov eax, dword ptr [0xfe820010]   0x2612e2 0x26131c 0x262aa3 0x2649c4
+     9 DSOUND   mov dword ptr [0xfe8202fc], 1   0x26146c 0x263b7c 0x2642d9 0x264386
+     8 DSOUND   mov dword ptr [0xfe8202f8], ecx   0x2621d4 0x2637c0 0x263b76 0x263ef6
+     7 DSOUND   mov dword ptr [0xfe8202f8], eax   0x261467 0x261e0d 0x263081 0x263a83
+     5 DSOUND   mov dword ptr [0xfe820304], ecx   0x2637d1 0x2641a3 0x2645d7 0x264cd1
+     4 DSOUND   mov dword ptr [0xfe820304], eax   0x263090 0x2642f1 0x2647c9 0x2648d0
+     4 DSOUND   mov dword ptr [0xfe8202f8], edx   0x26437c 0x264436 0x264a75 0x2655c3
+     3 DSOUND   mov ecx, dword ptr [0xfe820010]   0x2639df 0x263ee4 0x264180
+     3 DSOUND   mov dword ptr [0xfe8202fc], edi   0x263f1a 0x264d88 0x264e66
+     3 DSOUND   mov dword ptr [0xfe820300], eax   0x2642e3 0x2647bb 0x2648c2
+     3 DSOUND   mov dword ptr [0xfe820360], eax   0x2642fa 0x2647d2 0x2648d9
+     3 DSOUND   mov dword ptr [0xfe820364], eax   0x264303 0x2647db 0x2648e2
+     3 DSOUND   mov dword ptr [0xfe820368], eax   0x26430c 0x2647e4 0x2648eb
+     3 DSOUND   mov ebx, dword ptr [0xfe820010]   0x264a47 0x264e47 0x2667d6
+     3 XNET     mov dword ptr [0xfef00144], 1   0x2d0644 0x2d0667 0x2d077e
+     3 XONLINE  and ecx, 0xfeffffff   0x2ddd86 0x2ddfb0 0x2de15f
+     3 XONLINE  push 0xfd0   0x2f0016 0x2f074f 0x2f07e7
+     2 .text    push 0xfeff   0x10e187 0x110bd0
+     2 DSOUND   mov dword ptr [0xfe85fffc], 1   0x2610af 0x267269
+     2 DSOUND   mov edi, dword ptr [0xfe820010]   0x2621ab 0x263cdf
+     2 DSOUND   mov dword ptr [0xfe820318], ecx   0x263b89 0x2641ac
+     2 DSOUND   mov dword ptr [0xfe820350], ecx   0x263b92 0x2641d9
+     2 DSOUND   mov dword ptr [0xfe82036c], ecx   0x263b9b 0x2641e2
+     2 DSOUND   mov dword ptr [0xfe820370], ecx   0x263ba4 0x2641eb
+     2 DSOUND   mov dword ptr [0xfe8202fc], edx   0x263cfe 0x263e63
+     2 DSOUND   mov dword ptr [0xfe820360], ecx   0x264210 0x264da3
+     2 DSOUND   mov dword ptr [0xfe820364], ecx   0x26421a 0x264dad
+     2 DSOUND   mov dword ptr [0xfe820368], ecx   0x264224 0x264db7
+     2 DSOUND   mov dword ptr [0xfe82037c], eax   0x2647ec 0x2648f3
+     2 DSOUND   mov dword ptr [0xfe8203a0], ecx   0x264cdf 0x264dc3
+     2 DSOUND   mov dword ptr [0xfe8020d4], eax   0x2663c6 0x26650a
+     2 DSOUND   mov dword ptr [0xfec0012c], eax   0x267331 0x26733d
+     2 DSOUND   mov dword ptr [0xfec0017c], eax   0x267491 0x267623
+     2 XNET     mov esi, 0xfef00000   0x2d0160 0x2d094c
+     2 XNET     mov eax, 0xfef00180   0x2d01b3 0x2d0d2e
+     2 XNET     mov dword ptr [0xfef000a8], eax   0x2d070c 0x2d0c05
+     2 XNET     mov dword ptr [0xfef000ac], eax   0x2d0715 0x2d0c11
+     2 XNET     mov dword ptr [0xfef00004], 0x5f   0x2d0996 0x2d0d4f
+     2 XPP      mov eax, 0xfd050f80   0x304717 0x3053aa
+     1 .text    jne 0xfd02d   0xfd027
+     1 .text    jmp 0xfd043   0xfd02b
+     1 .text    jne 0xfd053   0xfd04d
+     1 .text    jmp 0xfd069   0xfd051
+     1 .text    jae 0xfd07b   0xfd072
+     1 .text    jne 0xfd083   0xfd07d
+     1 .text    jmp 0xfd099   0xfd081
+     1 .text    jae 0xfd0b6   0xfd0b0
+     1 .text    jmp 0xfd0b8   0xfd0b4
+     1 .text    jne 0xfd0c0   0xfd0ba
+     1 .text    jmp 0xfd0d6   0xfd0be
+     1 .text    jae 0xfd0e7   0xfd0da
+     1 .text    je 0xfec01   0xfebf6
+     1 .text    call 0xfec50   0xfeeb7
+     1 .text    push 0xfefc0   0xff03c
+     1 .text    push 0xfefa0   0x1007d2
+     1 .text    push 0xfef60   0x101424
+     1 .text    push 0xfef80   0x1014ff
+     1 .text    push 0xfef00   0x1015a3
