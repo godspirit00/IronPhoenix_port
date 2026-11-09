@@ -206,11 +206,18 @@ static HANDLE freeze_dispatch_owner() {
     return nullptr; // give up: run the ISR concurrently
 }
 
+// GPU (irq 3) interrupt cost: time waiting for the dispatch lock, and ISR + inline DPC time
+static volatile LONG64 g_gpu_irq_lock_ticks, g_gpu_irq_run_ticks;
+static volatile LONG g_gpu_irq_count;
 extern "C" void ke_isr_stats(char *buf, int n) {
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
-    snprintf(buf, n, "isr %ld frozen %ld retries %ld gaveup %ld freeze-time %.1f ms", g_isr_count, g_isr_frozen, g_isr_tries, g_isr_gaveup,
-             g_isr_freeze_ticks * 1000.0 / f.QuadPart);
+    LONG gc = InterlockedExchange(&g_gpu_irq_count, 0);
+    double lk = InterlockedExchange64(&g_gpu_irq_lock_ticks, 0) * 1000.0 / f.QuadPart;
+    double rn = InterlockedExchange64(&g_gpu_irq_run_ticks, 0) * 1000.0 / f.QuadPart;
+    snprintf(buf, n, "isr %ld frozen %ld retries %ld gaveup %ld freeze-time %.1f ms | gpu irq %ld: lock wait avg %.3f ms, isr+dpc avg %.3f ms",
+             g_isr_count, g_isr_frozen, g_isr_tries, g_isr_gaveup, g_isr_freeze_ticks * 1000.0 / f.QuadPart, gc, gc ? lk / gc : 0.0,
+             gc ? rn / gc : 0.0);
     g_isr_count = g_isr_frozen = g_isr_tries = g_isr_gaveup = 0;
     g_isr_freeze_ticks = 0;
 }
@@ -782,9 +789,10 @@ static bool ke_fire_interrupt_ex(uint32_t irq, bool inline_dpcs) {
     uint8_t old = b->Irql;
     bool got_dispatch = false;
     HANDLE frozen = nullptr;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
     if (old < 2) {
-        LARGE_INTEGER t0, now, f;
-        QueryPerformanceCounter(&t0);
+        LARGE_INTEGER now, f;
         QueryPerformanceFrequency(&f);
         for (;;) {
             if (TryEnterCriticalSection(&g_dispatch_lock)) {
@@ -796,6 +804,8 @@ static bool ke_fire_interrupt_ex(uint32_t irq, bool inline_dpcs) {
             SwitchToThread();
         }
     }
+    LARGE_INTEGER t_locked;
+    QueryPerformanceCounter(&t_locked);
     if (old <= 2) EnterCriticalSection(&g_int_lock);
     if (old < 2 && !got_dispatch) frozen = freeze_dispatch_owner();
     b->Irql = (uint8_t)i->Irql;
@@ -819,6 +829,13 @@ static bool ke_fire_interrupt_ex(uint32_t irq, bool inline_dpcs) {
         g_dispatch_owner_tid = 0;
         b->Irql = old;
         LeaveCriticalSection(&g_dispatch_lock);
+    }
+    if (irq == 3) {
+        LARGE_INTEGER t1;
+        QueryPerformanceCounter(&t1);
+        InterlockedIncrement(&g_gpu_irq_count);
+        InterlockedAdd64(&g_gpu_irq_lock_ticks, t_locked.QuadPart - t0.QuadPart);
+        InterlockedAdd64(&g_gpu_irq_run_ticks, t1.QuadPart - t_locked.QuadPart);
     }
     return true;
 }

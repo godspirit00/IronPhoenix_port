@@ -1770,6 +1770,10 @@ voice_work_dispatch(MCPXAPUState *d,
 
         qemu_cond_timedwait(&d->cond, &d->lock, 1);
     }
+    {
+        extern int64_t g_apu_vp_lock_wait_us;
+        g_apu_vp_lock_wait_us += qemu_clock_get_us(QEMU_CLOCK_REALTIME) - start_time;
+    }
 
     qemu_mutex_lock(&vwd->lock);
 
@@ -1801,7 +1805,17 @@ static void voice_work_init(MCPXAPUState *d)
 {
     VoiceWorkDispatch *vwd = &d->vp.voice_work_dispatch;
 
-    int num_workers = g_config.audio.vp.num_workers ?: SDL_GetNumLogicalCPUCores();
+    /* Port change: xemu wakes one worker per logical CPU every 0.67 ms frame. On 4-core CPUs
+     * (Steam Deck) that competes with the game, GPU and APU threads and the frame waits for the
+     * slowest worker. Default to half the logical CPUs, at most 4; XB_VP_WORKERS=N overrides. */
+    int num_workers = g_config.audio.vp.num_workers;
+    const char *env_workers = getenv("XB_VP_WORKERS");
+    if (env_workers && atoi(env_workers) > 0) {
+        num_workers = atoi(env_workers);
+    }
+    if (!num_workers) {
+        num_workers = MAX(1, MIN(4, SDL_GetNumLogicalCPUCores() / 2));
+    }
     vwd->num_workers = MAX(1, MIN(num_workers, MAX_VOICE_WORKERS));
     vwd->workers = g_malloc0_n(vwd->num_workers, sizeof(VoiceWorker));
     vwd->workers_should_exit = false;

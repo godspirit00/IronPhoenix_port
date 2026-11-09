@@ -255,6 +255,33 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         the same way if it belongs to a 4:3 frame.
       * UI scripts are plain text in extracted/Script (UI/*.cs, AI*.cs, Default.cs lists the engine
         natives) - relevant for future bot-AI work.
+- [x] (2026-11-09, user logs: Steam Deck SteamOS crash at boot; Win11 on Deck ~25-30 fps + audio stutter
+      on a small map with 7 bots, --scale 1)
+      * STEAMOS CRASH: EXCEPTION c0000005 at 0x22e9d4 info=[0 ffffffff] right after D3D's `out 80c0`. 32-bit
+        Wine raises a #GP on wbinvd/invd/rdmsr/wrmsr as an access violation at 0xffffffff (its i386
+        is_privileged_instr lacks them; Windows reports STATUS_PRIVILEGED_INSTRUCTION). Reproduced with Wine 9
+        and a synthetic XBE (wbinvd + NV2A MMIO read): old build crashes identically, new one runs.
+        cpu/mmio.cpp now emulates these on that AV signature, and rewrites cli/sti/wbinvd/invd/clts/wrmsr into
+        same-length NOPs after the first trap (DSound has ~16 wbinvd sites - each was a kernel trap, and a
+        signal round trip under Wine). Startup log names the host ("host: Wine x.y" / "Windows").
+      * Deck/Win11 log (AMD GL driver 22.40, 4C/8T Zen 2): GPU thread busy ~80% (PUSHER 1.5-1.6 s per 2 s,
+        ~25k draws/s, ~30 us/draw), of which `reports` 350-440 ms (≈1200 blocking occlusion reads per 2 s;
+        cheap on NVIDIA, not on AMD GL) and ww sync ~110 ms. Plus NOP-interrupt round trips avg 0.5-1.2 ms
+        (0.05 ms on the dev PC) = 300-500 ms per 2 s of GPU-thread idle waiting for the guest ISR.
+        APU: utilization 0.90-0.97 and 1300-1480 frames/s (< 1500 needed) -> the audio stutter.
+      * Instrumentation for the next logs: "dirty:" line adds IRQ-thread wake latency; "isr" line adds GPU irq
+        dispatch-lock wait and ISR+DPC time; "apu:" line splits vp / locked-voice wait / dsp and shows the
+        worker count.
+      * APU changes: frame thread + voice workers at THREAD_PRIORITY_HIGHEST; voice workers default to
+        min(4, logical CPUs / 2) instead of one per logical CPU (xemu wakes all of them every 0.67 ms frame);
+        XB_VP_WORKERS=N overrides. XB_AUDIO_DSP=0 = xemu's "use DSP" off (VP mix only, no GP/EP programs).
+      * To try on the Deck: XB_OCCLUSION=late, XB_AUDIO_DSP=0, mesa_glthread=true (SteamOS).
+      * Larger options (not started): (1) port xemu's Vulkan pgraph backend - AMD's Windows GL driver is the
+        weak spot, RADV/NVIDIA Vulkan have far lower per-draw cost; 32-bit Vulkan ICDs exist on all three
+        targets. (2) HLE D3D8 -> D3D11/Vulkan (Cxbx-style, no pushbuffer/surface emulation) - highest ceiling,
+        months of work. (3) DSP: JIT or native replacements for the XDK effect programs. (4) native Linux build
+        (signals/mmap instead of VEH/VirtualAlloc) only if Proton overhead (write-watch emulation, slow SEH
+        dispatch) turns out to matter.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env

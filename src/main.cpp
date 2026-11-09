@@ -117,6 +117,14 @@ int main(int argc, char **argv) {
     log_init(logpath);
     setvbuf(stdout, nullptr, _IONBF, 0);
     logf("Iron Phoenix native runtime starting. game=%s save=%s", g_game_dir, g_save_dir);
+    {
+        typedef const char *(__cdecl * wine_version_fn)(void);
+        auto wine_version = (wine_version_fn)(void *)GetProcAddress(GetModuleHandleA("ntdll.dll"), "wine_get_version");
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        logf("host: %s%s, %lu logical CPUs", wine_version ? "Wine " : "Windows", wine_version ? wine_version() : "",
+             si.dwNumberOfProcessors);
+    }
 
     AddVectoredExceptionHandler(1, crash_handler);
     debug_init(dump_after);
