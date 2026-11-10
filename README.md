@@ -60,6 +60,16 @@ Environment variables that can help on slower machines (Steam Deck):
 | `XB_OCCLUSION=late` | Don't stall the GPU thread on occlusion-query results |
 | `XB_VP_WORKERS=N` | Audio voice worker threads (default: half the logical CPUs, at most 4) |
 
+Audio A/B test switches (for reporting sound problems):
+
+| Variable | Effect |
+|---|---|
+| `XB_AUDIO_DSP=0` | Same as xemu's default ("Real-time DSP processing" off) |
+| `XB_AUDIO_HRTF=0` | No HRTF (3D positional) filtering |
+| `XB_AUDIO_VOICE_LPF=0` | No per-voice low-pass filter |
+| `XB_AUDIO_HRTF_FIX=0` | Undo the port's fix for mono 3D sounds (xemu's original mixing) |
+| `XB_VOICE_LOG=1` | Log every sound: 2D/3D, format, sample rate, filter cutoff, HRTF, mix bins |
+
 ## Steam Deck / Linux (Proton)
 
 Add `ironphoenix.exe` to Steam as a non-Steam game and force a Proton version in its Compatibility

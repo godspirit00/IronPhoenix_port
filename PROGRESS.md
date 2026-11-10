@@ -282,6 +282,19 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         months of work. (3) DSP: JIT or native replacements for the XDK effect programs. (4) native Linux build
         (signals/mmap instead of VEH/VirtualAlloc) only if Proton overhead (write-watch emulation, slow SEH
         dispatch) turns out to matter.
+- [x] (2026-11-10, user report: in-match voices / weapon clashes sound blurry, pickups clear; xemu sounded better)
+      * Our vp/ is identical to xemu master (only port changes: lock-free voice_lock, locked-voice skip, worker
+        count, logs). Difference vs the user's xemu: xemu's config default is use_dsp = false (DSP off, MON_VP
+        mix); we run the DSP path.
+      * BUG (xemu too, DSP path only): after the HRTF a voice is a left/right-ear pair, but the mixbin loop used
+        samples[b % channels] - a mono 3D voice sent the LEFT-ear signal to all 4 HRTF bins and lost the right ear
+        (head-shadowed = muffled for sources on the right). MON_VP mixed both ears, so xemu's default was fine.
+        Fix (vp.c voice_process): HRTF bins 0-3 take ear b % 2, bins 4-7 (effect sends) the pre-HRTF signal.
+        Untested on hardware (no game here).
+      * Also suspicious: the voice low-pass (fmode 1 = DLS2+I3DL2 on 3D voices) is a Chamberlin SVF whose
+        coefficient f = 2^(fc/4096) is clamped to 1.0 = an 8 kHz cutoff even fully open. The fc -> Hz mapping is
+        xemu's guess. XB_VOICE_LOG now prints fc and the resulting Hz per voice (at start and +100 ms).
+      * A/B switches: XB_AUDIO_HRTF=0, XB_AUDIO_VOICE_LPF=0, XB_AUDIO_HRTF_FIX=0 (see README).
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env
