@@ -16,6 +16,79 @@ static bool readable(const void *p, size_t n) {
     return (uintptr_t)p + n <= (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
 }
 
+// --- symbolizer: function names from the exe's own COFF symbol table (kept by the -g link) ---
+#include <algorithm>
+#include <string>
+static const uint32_t XBOX_CODE_BEGIN = 0x11000, XBOX_CODE_END = 0x4B0000;
+struct Sym {
+    uint32_t addr;
+    bool func;
+    std::string name;
+};
+static std::vector<Sym> g_syms;
+static void load_symbols() {
+    static bool done;
+    if (done) return;
+    done = true;
+    char path[MAX_PATH];
+    GetModuleFileNameA(nullptr, path, sizeof path);
+    FILE *f = fopen(path, "rb");
+    if (!f) return;
+    std::vector<uint8_t> d;
+    fseek(f, 0, SEEK_END);
+    d.resize(ftell(f));
+    fseek(f, 0, SEEK_SET);
+    fread(d.data(), 1, d.size(), f);
+    fclose(f);
+    if (d.size() < 0x400) return;
+    uint32_t pe = *(uint32_t *)&d[0x3C];
+    if (pe + 0x200 > d.size()) return;
+    IMAGE_FILE_HEADER *fh = (IMAGE_FILE_HEADER *)&d[pe + 4];
+    IMAGE_OPTIONAL_HEADER32 *oh = (IMAGE_OPTIONAL_HEADER32 *)(fh + 1);
+    IMAGE_SECTION_HEADER *sh = (IMAGE_SECTION_HEADER *)((uint8_t *)oh + fh->SizeOfOptionalHeader);
+    uint32_t symoff = fh->PointerToSymbolTable, nsym = fh->NumberOfSymbols;
+    if (!symoff || symoff + nsym * 18 + 4 > d.size()) return;
+    const char *strtab = (const char *)&d[symoff + nsym * 18];
+    for (uint32_t i = 0; i < nsym; i++) {
+        IMAGE_SYMBOL *sym = (IMAGE_SYMBOL *)&d[symoff + i * 18];
+        i += sym->NumberOfAuxSymbols;
+        if (sym->SectionNumber <= 0 || sym->SectionNumber > fh->NumberOfSections) continue;
+        if (sym->StorageClass != IMAGE_SYM_CLASS_EXTERNAL && sym->StorageClass != IMAGE_SYM_CLASS_STATIC) continue;
+        std::string name = sym->N.Name.Short ? std::string((const char *)sym->N.ShortName, strnlen((const char *)sym->N.ShortName, 8))
+                                             : std::string(strtab + sym->N.Name.Long);
+        if (name.empty() || name[0] == '.') continue; // section symbols
+        uint32_t a = oh->ImageBase + sh[sym->SectionNumber - 1].VirtualAddress + sym->Value;
+        g_syms.push_back({a, (sym->Type >> 4) == IMAGE_SYM_DTYPE_FUNCTION, name});
+    }
+    std::sort(g_syms.begin(), g_syms.end(), [](const Sym &a, const Sym &b) { return a.addr < b.addr; });
+}
+// "func+0x12" for our code, "xbox:0022e9d4" for game code, "module+0x34" for DLLs; nullptr if
+// the address is not code (data symbol / unknown)
+static const char *symbolize(uint32_t a, char *buf, size_t n) {
+    if (a >= XBOX_CODE_BEGIN && a < XBOX_CODE_END) {
+        snprintf(buf, n, "xbox:%08x", a);
+        return buf;
+    }
+    load_symbols();
+    auto it = std::upper_bound(g_syms.begin(), g_syms.end(), a, [](uint32_t v, const Sym &s) { return v < s.addr; });
+    if (it != g_syms.begin() && a < 0x01000000) {
+        --it;
+        if (!it->func || a - it->addr > 0x10000) return nullptr;
+        snprintf(buf, n, "%s+0x%x", it->name.c_str(), a - it->addr);
+        return buf;
+    }
+    HMODULE hm;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)(uintptr_t)a, &hm) &&
+        hm != GetModuleHandleA(nullptr)) {
+        char mod[MAX_PATH];
+        GetModuleFileNameA(hm, mod, sizeof mod);
+        const char *base = strrchr(mod, '\\');
+        snprintf(buf, n, "%s+0x%x", base ? base + 1 : mod, a - (uint32_t)(uintptr_t)hm);
+        return buf;
+    }
+    return nullptr;
+}
+
 void debug_dump_threads(const char *why) {
     std::vector<std::pair<HANDLE, DWORD>> threads;
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -52,6 +125,21 @@ void debug_dump_threads(const char *why) {
             for (int i = 0; i < 8; i++) m += snprintf(sbuf + m, sizeof sbuf - m, "%08x ", readable(sp + i, 4) ? sp[i] : 0);
             logf("  tid %5lu eip=%08lx esp=%08lx ebp=%08lx eax=%08lx ecx=%08lx | frames: %s| stack: %s", t.second, c.Eip, c.Esp, c.Ebp,
                  c.Eax, c.Ecx, buf, sbuf);
+            // symbolized: eip, then likely return addresses found on the stack (stale frames possible)
+            char sym[128], line[1400];
+            const char *e = symbolize(c.Eip, sym, sizeof sym);
+            int k = snprintf(line, sizeof line, "    at %s |", e ? e : "?");
+            uint32_t *sp2 = (uint32_t *)c.Esp;
+            int depth = 4096;
+            while (depth > 16 && !readable(sp2, depth * 4)) depth /= 2;
+            for (int i = 0, found = 0; i < depth && found < 14 && k < (int)sizeof line - 140; i++) {
+                const char *r = symbolize(sp2[i], sym, sizeof sym);
+                if (r) {
+                    k += snprintf(line + k, sizeof line - k, " %s", r);
+                    found++;
+                }
+            }
+            logf("%s", line);
         }
         ResumeThread(t.first);
         CloseHandle(t.first);
@@ -92,6 +180,28 @@ static DWORD WINAPI debug_watch_thread(void *arg) {
             }
         } else if (since < 100000) {
             in_stall = false;
+        }
+        // Always on: the game stopped presenting for 10 s after it had been running (a hang).
+        // Dump all threads + GPU state a few times once, so a user log shows where it is stuck.
+        // XB_HANG_DUMP=0 disables, XB_HANG_DUMP=N sets the threshold in seconds.
+        static const int hang_s = getenv("XB_HANG_DUMP") ? atoi(getenv("XB_HANG_DUMP")) : 10;
+        static int hang_dumps;
+        static bool hang_armed = true;
+        if (hang_s > 0 && since > (int64_t)hang_s * 1000000 && hang_armed && hang_dumps < 3) {
+            hang_armed = false;
+            hang_dumps++;
+            logf("hang: no frame presented for %lld s - dumping threads (XB_HANG_DUMP=0 disables)", (long long)(since / 1000000));
+            for (int k = 0; k < 3; k++) {
+                char why[32];
+                snprintf(why, sizeof why, "hang %d.%d", hang_dumps, k);
+                debug_dump_threads(why);
+                char st[512];
+                nv2a_debug_state(st, sizeof st);
+                logf("  nv2a: %s", st);
+                Sleep(300);
+            }
+        } else if (since < 1000000) {
+            hang_armed = true;
         }
         Sleep(stall_enabled ? 5 : 20);
     }

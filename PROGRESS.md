@@ -295,6 +295,14 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         coefficient f = 2^(fc/4096) is clamped to 1.0 = an 8 kHz cutoff even fully open. The fc -> Hz mapping is
         xemu's guess. XB_VOICE_LOG now prints fc and the resulting Hz per voice (at start and +100 ms).
       * A/B switches: XB_AUDIO_HRTF=0, XB_AUDIO_VOICE_LPF=0, XB_AUDIO_HRTF_FIX=0 (see README).
+- [x] (2026-11-10, user log: SteamOS (Proton, Wine 11.0) boots to the menu now; HANGS when a match starts)
+      * Log: match shaders compile, ~170 draws, then from ~726.9 s nothing: pfifo loop never iterates again
+        (PUSHER/reports 0 calls), APU MMIO 0 (game threads stopped too), vblank IRQs still delivered, dispatch lock
+        free. Not occlusion "late" mode (outstanding reports keep the pfifo loop polling). Root cause unknown.
+      * Hang watchdog is now always on: after 10 s without a presented frame (once the game has presented),
+        3 thread dumps + nv2a state (XB_HANG_DUMP=0 off / =N seconds). Dumps are symbolized at runtime from the
+        exe's own COFF symbol table (function+offset for our code, module+offset for DLLs, xbox:VA for game code)
+        plus likely return addresses scanned from each stack. The pfifo thread logs its tid at start.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env
