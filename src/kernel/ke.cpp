@@ -173,37 +173,23 @@ void ke_lower_irql(uint8_t irql) {
 // is inside host code (kernel call, MMIO emulation - may hold host locks the ISR needs), retry.
 volatile long g_isr_count, g_isr_frozen, g_isr_gaveup, g_isr_tries;
 volatile long long g_isr_freeze_ticks;
-static HANDLE freeze_dispatch_owner() {
-    DWORD me = GetCurrentThreadId();
-    LARGE_INTEGER t0, t1;
-    QueryPerformanceCounter(&t0);
-    struct Timer {
-        LARGE_INTEGER &t0, &t1;
-        ~Timer() { QueryPerformanceCounter(&t1); InterlockedAdd64((volatile LONG64 *)&g_isr_freeze_ticks, t1.QuadPart - t0.QuadPart); }
-    } timer{t0, t1};
-    InterlockedIncrement(&g_isr_count);
-    for (int tries = 0; tries < 64; tries++) {
-        DWORD tid = g_dispatch_owner_tid;
-        HANDLE h = g_dispatch_owner_handle;
-        if (!tid || tid == me || !h) return nullptr;
-        if (SuspendThread(h) == (DWORD)-1) return nullptr;
-        CONTEXT c = {};
-        c.ContextFlags = CONTEXT_CONTROL;
-        bool ok = GetThreadContext(h, &c) != 0; // also waits until the suspension took effect
-        if (g_dispatch_owner_tid != tid) { // released the lock meanwhile
-            ResumeThread(h);
-            continue;
-        }
-        if (ok && c.Eip >= XBOX_CODE_BEGIN && c.Eip < XBOX_CODE_END) {
-            InterlockedIncrement(&g_isr_frozen);
-            return h;
-        }
-        InterlockedIncrement(&g_isr_tries);
-        ResumeThread(h);
-        if (tries > 8) SwitchToThread();
+// One attempt: suspend the dispatch-lock holder; keep it frozen only if it is executing Xbox code
+// (in host code it may hold host locks the ISR needs). Caller holds g_int_lock.
+static HANDLE try_freeze_dispatch_owner() {
+    DWORD tid = g_dispatch_owner_tid;
+    HANDLE h = g_dispatch_owner_handle;
+    if (!tid || tid == GetCurrentThreadId() || !h) return nullptr;
+    if (SuspendThread(h) == (DWORD)-1) return nullptr;
+    CONTEXT c = {};
+    c.ContextFlags = CONTEXT_CONTROL;
+    bool ok = GetThreadContext(h, &c) != 0; // also waits until the suspension took effect
+    if (ok && g_dispatch_owner_tid == tid && c.Eip >= XBOX_CODE_BEGIN && c.Eip < XBOX_CODE_END) {
+        InterlockedIncrement(&g_isr_frozen);
+        return h;
     }
-    InterlockedIncrement(&g_isr_gaveup);
-    return nullptr; // give up: run the ISR concurrently
+    InterlockedIncrement(&g_isr_tries);
+    ResumeThread(h);
+    return nullptr;
 }
 
 // GPU (irq 3) interrupt cost: time waiting for the dispatch lock, and ISR + inline DPC time
@@ -807,7 +793,40 @@ static bool ke_fire_interrupt_ex(uint32_t irq, bool inline_dpcs) {
     LARGE_INTEGER t_locked;
     QueryPerformanceCounter(&t_locked);
     if (old <= 2) EnterCriticalSection(&g_int_lock);
-    if (old < 2 && !got_dispatch) frozen = freeze_dispatch_owner();
+    if (old < 2 && !got_dispatch) {
+        // Uniprocessor semantics: the ISR must not run concurrently with DISPATCH_LEVEL code
+        // (DSound's ISR and DPC-level code share voice tables without locks - a concurrent ISR read
+        // a voice slot being retired and crashed under Wine). Keep trying both ways: take the lock
+        // as soon as it is free, or freeze the holder at a point where it runs Xbox code. The int
+        // lock is dropped between attempts so a holder that needs it can progress. Running
+        // concurrently is only the last resort after 100 ms.
+        InterlockedIncrement(&g_isr_count);
+        LARGE_INTEGER f, now;
+        QueryPerformanceFrequency(&f);
+        for (int n = 0;; n++) {
+            if (TryEnterCriticalSection(&g_dispatch_lock)) {
+                got_dispatch = true;
+                break;
+            }
+            if ((frozen = try_freeze_dispatch_owner())) break;
+            QueryPerformanceCounter(&now);
+            if ((now.QuadPart - t_locked.QuadPart) * 10 > f.QuadPart) { // 100 ms
+                InterlockedIncrement(&g_isr_gaveup);
+                static volatile long logged;
+                if (InterlockedIncrement(&logged) <= 20)
+                    logf("interrupt %u: dispatch-lock holder tid %lu not freezable for 100 ms - ISR runs concurrently", irq,
+                         g_dispatch_owner_tid);
+                break;
+            }
+            LeaveCriticalSection(&g_int_lock);
+            if (n < 16) SwitchToThread();
+            else Sleep(0);
+            EnterCriticalSection(&g_int_lock);
+        }
+        LARGE_INTEGER t1;
+        QueryPerformanceCounter(&t1);
+        InterlockedAdd64((volatile LONG64 *)&g_isr_freeze_ticks, t1.QuadPart - t_locked.QuadPart);
+    }
     b->Irql = (uint8_t)i->Irql;
     ((Isr_t)xptr<void>(i->ServiceRoutine))(xaddr(i), i->ServiceContext);
     b->Irql = old;

@@ -333,6 +333,17 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
       * Every map sets an I3DL2 reverb (Script/Sn/*.cs SetAudioEnvironment(ENVIRONMENT_CITY/ROOM/...)): with the
         DSP on, 3D voices send into it (xemu's default DSP-off has no reverb at all). XB_AUDIO_REVERB=x scales
         sends to mixbin 10 (DSMIXBIN_I3DL2) for A/B by ear.
+- [x] (2026-11-11, user log: SteamOS now plays matches; crashed after some minutes)
+      * EXCEPTION c0000005 at 0x261118 on the APU IRQ thread: DSound's ISR read a null voice-client slot
+        ([ecx+voice*4+0x88]) - ISR run concurrently with DPC-level code. Log: 74 contested ISRs, only 19 frozen,
+        47 gave up (SuspendThread/GetThreadContext are slow under Wine and the holder is often in host code,
+        e.g. APU MMIO emulation). Second hole: when the holder released the lock during a freeze attempt,
+        freeze_dispatch_owner returned null and the ISR ran without the dispatch lock at all.
+      * ke_fire_interrupt_ex: after the 1 ms TryEnter phase, loop {TryEnter dispatch lock | freeze the holder if
+        it is in Xbox code}, dropping g_int_lock between attempts so a holder needing it can progress; run
+        concurrently only after 100 ms (logged "not freezable for 100 ms").
+      * SteamOS perf (Deck, DSP off, scale 1): median 27 fps, GPU thread ~75% busy (PUSHER ~1.5 s / 2 s), write-watch
+        sync 120-235 ms / 2 s (Wine emulates write watches), APU utilization 0.2-0.3 with the DSP off.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env
