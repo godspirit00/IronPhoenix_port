@@ -318,6 +318,21 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         format/type) and disarms it first (nv2a_gl_guest_access = what an emulator-thread fault does). Also
         covers vertex.c's glBufferSubData from guest RAM and surface downloads into guest memory.
         Rule: never hand a guest pointer to a host API that may run Unix-side without disarming it first.
+- [x] (2026-11-11, user uploaded default.xbe + Script/ -> extracted/ is a local symlink, never commit game files)
+      * Confirmed: 0x22e9d4 = wbinvd (D3D init, after `mov [0x80000000], eax`). Scan of privileged instructions
+        at real instruction boundaries: the only cache/MSR instruction in executed code is that wbinvd; DSOUND
+        "rdmsr/wrmsr/invd/clts" hits are DSP images/tables. cli/sti/in/out are reported by Wine correctly.
+      * VOICE FILTER, from the code: XACT (0x2c4bda) is the only SetFilter caller. DLS2 mode: cutoff Hz clamped
+        0..8192 -> 0x2c76ee: <30 Hz -> 0x8000, >8000 Hz -> 0, else FC = 4096*log2(2 sin(pi*hz/48000)); resonance
+        0x2c774c: q = 32768*10^(-min(dB,22.5)/20). So xemu's f = 2^(FC/4096) (SVF coefficient, max 1.0 = 8 kHz)
+        and q/0x8000 are exactly right - the 8 kHz ceiling is by design. FCA = coef0 | coef1<<16 (fc | q).
+        For 3D buffers in mode 0 DSound forces FMODE 3 (I3DL2 only - xemu: no LPF).
+      * XACT also calls SetEG (0x2c315f); the multi envelope (EG 0) puts lFilterCutOff into ENV1.EF_FCSCALE
+        (CMcpxVoiceClient::SetEG 0x263bce). xemu ignored it (FIXME). Now fc_eff = FC + fcscale*32*ef, mirroring
+        xemu's pitch modulation (p + ps*32*ef). XB_AUDIO_FC_ENV=0 disables; voice log prints fcscale/ef.
+      * Every map sets an I3DL2 reverb (Script/Sn/*.cs SetAudioEnvironment(ENVIRONMENT_CITY/ROOM/...)): with the
+        DSP on, 3D voices send into it (xemu's default DSP-off has no reverb at all). XB_AUDIO_REVERB=x scales
+        sends to mixbin 10 (DSMIXBIN_I3DL2) for A/B by ear.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env

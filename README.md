@@ -68,6 +68,8 @@ Audio A/B test switches (for reporting sound problems):
 | `XB_AUDIO_HRTF=0` | No HRTF (3D positional) filtering |
 | `XB_AUDIO_VOICE_LPF=0` | No per-voice low-pass filter |
 | `XB_AUDIO_HRTF_FIX=0` | Undo the port's fix for mono 3D sounds (xemu's original mixing) |
+| `XB_AUDIO_REVERB=x` | Scale the room-reverb send of 3D sounds (e.g. `0.5`; `0` = dry, DSP on only) |
+| `XB_AUDIO_FC_ENV=0` | Ignore filter-envelope sweeps of the voice cutoff (xemu's behaviour) |
 | `XB_VOICE_LOG=1` | Log every sound: 2D/3D, format, sample rate, filter cutoff, HRTF, mix bins |
 
 ## Steam Deck / Linux (Proton)
