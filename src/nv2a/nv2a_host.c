@@ -652,6 +652,28 @@ static int disarm_overlapping(hwaddr addr, hwaddr len, struct MemAccessCallback 
     return n;
 }
 
+/* GL guest-memory guard (compat/gl_guest_guard.c): a GL call is about to read (or write) these
+ * guest bytes from inside the driver. Disarm them like an emulator-thread fault would - under
+ * Wine a fault inside the (Unix-side) driver never reaches access_fault_handler. */
+bool nv2a_gl_is_guest_ptr(const void *p)
+{
+    return (uintptr_t)p - (uintptr_t)g_vram.ptr < g_vram.size;
+}
+void nv2a_gl_guest_access(const void *p, size_t len, bool write)
+{
+    uintptr_t base = (uintptr_t)g_vram.ptr, a = (uintptr_t)p;
+    if (!g_access_cbs || !len || a - base >= g_vram.size) {
+        return;
+    }
+    hwaddr lo = (a - base) & ~0xFFFull;
+    hwaddr hi = a - base + len;
+    if (hi > g_vram.size) {
+        hi = g_vram.size;
+    }
+    hi = (hi + 0xFFF) & ~0xFFFull;
+    disarm_overlapping(lo, hi - lo, NULL, 0, write);
+}
+
 static void run_callbacks(hwaddr addr, hwaddr len, bool write)
 {
     struct MemAccessCallback *hits[16];

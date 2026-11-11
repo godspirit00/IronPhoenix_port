@@ -303,6 +303,21 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         3 thread dumps + nv2a state (XB_HANG_DUMP=0 off / =N seconds). Dumps are symbolized at runtime from the
         exe's own COFF symbol table (function+offset for our code, module+offset for DLLs, xbox:VA for game code)
         plus likely return addresses scanned from each stack. The pfifo thread logs its tid at start.
+- [x] (2026-11-11, user logs with the hang watchdog, occlusion exact + late: same hang) ROOT CAUSE + FIX:
+      * Dump: pfifo thread blocked inside Mesa in glTexImage2D(..., NULL) called from
+        pgraph_gl_render_surface_to_texture (first render-target-as-texture of a match); all other threads wait on it.
+      * Just before, generate_texture() uploads the surface's guest memory directly (glTexImage2D(texture_data)),
+        and render-target pages are PAGE_NOACCESS (surface access callbacks). Windows: the driver's fault reaches
+        access_fault_handler, which disarms. Wine: Mesa runs Unix-side; Wine's handle_syscall_fault abandons the
+        call and returns STATUS_ACCESS_VIOLATION to the PE thunk (only a WARN) - Mesa's teximage() still holds
+        ctx->Shared->TexMutex, so the next glTexImage2D deadlocks. Reproduced with Wine 9 + llvmpipe
+        (scratch test: upload from NOACCESS memory "returns", VEH never called, next glTexImage2D hangs).
+      * Fix: compat/gl_guest_guard.c wraps glad's pointers for every GL call taking client memory
+        (Tex(Sub)Image2D/3D, CompressedTex*, BufferData/SubData, ReadPixels, GetTexImage). For a pointer into
+        guest RAM it computes the exact byte range (from (UN)PACK row length/image height/alignment and the
+        format/type) and disarms it first (nv2a_gl_guest_access = what an emulator-thread fault does). Also
+        covers vertex.c's glBufferSubData from guest RAM and surface downloads into guest memory.
+        Rule: never hand a guest pointer to a host API that may run Unix-side without disarming it first.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env
