@@ -222,6 +222,10 @@ static void throttle(MCPXAPUState *d)
     }
 }
 
+/* per-stage frame time, reset with the utilization window (apu frame thread only) */
+static int64_t g_apu_vp_us, g_apu_dsp_us;
+int64_t g_apu_vp_lock_wait_us; /* vp.c: time waiting for DSound to unlock voices */
+
 static void se_frame(MCPXAPUState *d)
 {
     mcpx_apu_update_dsp_preference(d);
@@ -243,12 +247,16 @@ static void se_frame(MCPXAPUState *d)
             if ((report++ % 5) == 0) {
                 LARGE_INTEGER f;
                 QueryPerformanceFrequency(&f);
-                nv2a_log("apu: utilization %.2f, %d frames/s | mmio %ld (%.1f ms) slow %ld last slow %05x", g_dbg.utilization,
+                /* share of wall time in the voice processor (incl. waits for locked voices) and DSPs */
+                nv2a_log("apu: utilization %.2f (vp %.2f [locked-voice wait %.2f] dsp %.2f, %d vp workers%s), %d frames/s | mmio %ld (%.1f ms) slow %ld last slow %05x",
+                         g_dbg.utilization, (double)g_apu_vp_us / elapsed_us, (double)g_apu_vp_lock_wait_us / elapsed_us,
+                         (double)g_apu_dsp_us / elapsed_us, g_dbg.vp.num_workers, g_config.audio.use_dsp ? "" : ", DSP off",
                          (int)(d->frame_count * 1000000.0 / elapsed_us + 0.5), InterlockedExchange(&g_apu_mmio_count, 0),
                          InterlockedExchange64(&g_apu_mmio_ticks, 0) * 1000.0 / f.QuadPart, InterlockedExchange(&g_apu_mmio_slow, 0),
                          g_apu_slow_addr);
             }
         }
+        g_apu_vp_us = g_apu_dsp_us = g_apu_vp_lock_wait_us = 0;
         g_dbg.frames_processed = (int)(d->frame_count * 1000000.0 / elapsed_us + 0.5);
         throttle_publish_debug(d);
 
@@ -261,9 +269,14 @@ static void se_frame(MCPXAPUState *d)
     /* Buffer for all mixbins for this frame */
     float mixbins[NUM_MIXBINS][NUM_SAMPLES_PER_FRAME] = { 0 };
 
+    int64_t t_vp = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
     mcpx_apu_vp_frame(d, mixbins);
+    int64_t t_dsp = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
     mcpx_apu_dsp_frame(d, mixbins);
+    int64_t t_mon = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
     mcpx_apu_monitor_frame(d);
+    g_apu_vp_us += t_dsp - t_vp;
+    g_apu_dsp_us += t_mon - t_dsp;
 
     d->ep_frame_div++;
     d->frame_work_acc_us += qemu_clock_get_us(QEMU_CLOCK_REALTIME) - start_us;
@@ -433,6 +446,13 @@ void mcpx_apu_host_init(uint8_t *ram, uint32_t ram_size)
     static MemoryRegion ram_mr;
     MCPXAPUState *d = g_malloc0(sizeof(MCPXAPUState));
     g_state = d;
+    /* XB_AUDIO_DSP=0: skip the GP/EP DSP programs (xemu's "use DSP" off). Mixes the voices
+     * directly - no DSP effects such as reverb, but far less CPU for slow machines. */
+    const char *dsp_env = getenv("XB_AUDIO_DSP");
+    if (dsp_env && !strcmp(dsp_env, "0")) {
+        g_config.audio.use_dsp = false;
+        nv2a_log("apu: DSP disabled (XB_AUDIO_DSP=0)");
+    }
     ram_mr.ptr = ram;
     ram_mr.size = ram_size;
     d->ram = &ram_mr;

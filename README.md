@@ -29,7 +29,8 @@ adds modern display features:
    ```
 3. Run `ironphoenix.exe`. Saves go to `save\` next to the exe; the log is written to `ironphoenix.log`.
 
-**Requirements:** 64-bit Windows 10/11 and a GPU with a recent OpenGL 4.x driver.
+**Requirements:** 64-bit Windows 10/11 (or Linux / Steam Deck through Proton, experimental) and a GPU with a
+recent OpenGL 4.x driver.
 Development and testing were done on NVIDIA GPUs (RTX 2070, GTX 1060).
 
 The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos take longer.
@@ -50,6 +51,31 @@ The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos
 
 Developer options (`--trace`, `--profile`, `--input`, `--audio-dump`, `--shot-every`, `--dump-after`,
 `XB_*` environment variables) are documented in [PROGRESS.md](PROGRESS.md).
+
+Environment variables that can help on slower machines (Steam Deck):
+
+| Variable | Effect |
+|---|---|
+| `XB_AUDIO_DSP=0` | Skip the audio DSP programs: much less CPU, no DSP effects such as reverb |
+| `XB_OCCLUSION=late` | Don't stall the GPU thread on occlusion-query results |
+| `XB_VP_WORKERS=N` | Audio voice worker threads (default: half the logical CPUs, at most 4) |
+
+Audio A/B test switches (for reporting sound problems):
+
+| Variable | Effect |
+|---|---|
+| `XB_AUDIO_DSP=0` | Same as xemu's default ("Real-time DSP processing" off) |
+| `XB_AUDIO_HRTF=0` | No HRTF (3D positional) filtering |
+| `XB_AUDIO_VOICE_LPF=0` | No per-voice low-pass filter |
+| `XB_AUDIO_HRTF_FIX=0` | Undo the port's fix for mono 3D sounds (xemu's original mixing) |
+| `XB_AUDIO_REVERB=x` | Scale the room-reverb send of 3D sounds (e.g. `0.5`; `0` = dry, DSP on only) |
+| `XB_AUDIO_FC_ENV=0` | Ignore filter-envelope sweeps of the voice cutoff (xemu's behaviour) |
+| `XB_VOICE_LOG=1` | Log every sound: 2D/3D, format, sample rate, filter cutoff, HRTF, mix bins |
+
+## Steam Deck / Linux (Proton)
+
+Add `ironphoenix.exe` to Steam as a non-Steam game and force a Proton version in its Compatibility
+settings. Environment variables go in the launch options, e.g. `XB_AUDIO_DSP=0 %command% --scale 2`.
 
 ## Controls
 

@@ -38,6 +38,9 @@ void nv2a_bql_lock(void) { EnterCriticalSection(&g_bql); }
 void nv2a_bql_unlock(void) { LeaveCriticalSection(&g_bql); }
 
 /* ---------------------------------------------------------------- IRQ */
+/* interrupt delivery latency: line raised -> IRQ thread running (logged on the "dirty:" line) */
+static volatile LONG64 g_irq_raise_qpc, g_irq_wake_ticks;
+static volatile LONG g_irq_wake_count;
 void nv2a_update_irq(NV2AState *d)
 {
     /* PFIFO */
@@ -71,6 +74,9 @@ void nv2a_update_irq(NV2AState *d)
     bool assert_irq = d->pmc.pending_interrupts && d->pmc.enabled_interrupts;
     g_irq_asserted = assert_irq;
     if (assert_irq) {
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        InterlockedCompareExchange64(&g_irq_raise_qpc, t.QuadPart, 0);
         SetEvent(g_irq_event);
     }
 }
@@ -81,6 +87,13 @@ static DWORD WINAPI irq_thread(void *arg)
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
     for (;;) {
         WaitForSingleObject(g_irq_event, INFINITE);
+        LONG64 raised = InterlockedExchange64(&g_irq_raise_qpc, 0);
+        if (raised) {
+            LARGE_INTEGER t;
+            QueryPerformanceCounter(&t);
+            InterlockedAdd64(&g_irq_wake_ticks, t.QuadPart - raised);
+            InterlockedIncrement(&g_irq_wake_count);
+        }
         for (int spins = 0; g_irq_asserted; spins++) {
             if (!ke_fire_interrupt_c(XBOX_GPU_IRQ)) {
                 break; /* no ISR connected yet */
@@ -382,8 +395,11 @@ static DWORD WINAPI vblank_thread(void *arg)
                 QueryPerformanceFrequency(&qf2);
                 LONG nn = InterlockedExchange(&g_nop_count, 0);
                 double wt = InterlockedExchange64(&g_nop_wait_ticks, 0) * 1000.0 / qf2.QuadPart;
-                nv2a_log("dirty: epochs %u queries %ld | nop irqs %ld, total wait %.1f ms (avg %.3f ms)", g_nv2a_kick_epoch - last_epoch,
-                         InterlockedExchange(&g_ww_queries, 0), nn, wt, nn ? wt / nn : 0.0);
+                LONG wc = InterlockedExchange(&g_irq_wake_count, 0);
+                double wk = InterlockedExchange64(&g_irq_wake_ticks, 0) * 1000.0 / qf2.QuadPart;
+                nv2a_log("dirty: epochs %u queries %ld | nop irqs %ld, total wait %.1f ms (avg %.3f ms) | irq wakes %ld avg %.3f ms",
+                         g_nv2a_kick_epoch - last_epoch, InterlockedExchange(&g_ww_queries, 0), nn, wt, nn ? wt / nn : 0.0, wc,
+                         wc ? wk / wc : 0.0);
             }
             last_epoch = g_nv2a_kick_epoch;
             extern volatile long g_reports_deferred, g_reports_blocking;
@@ -634,6 +650,28 @@ static int disarm_overlapping(hwaddr addr, hwaddr len, struct MemAccessCallback 
     }
     ReleaseSRWLockExclusive(&g_access_lock);
     return n;
+}
+
+/* GL guest-memory guard (compat/gl_guest_guard.c): a GL call is about to read (or write) these
+ * guest bytes from inside the driver. Disarm them like an emulator-thread fault would - under
+ * Wine a fault inside the (Unix-side) driver never reaches access_fault_handler. */
+bool nv2a_gl_is_guest_ptr(const void *p)
+{
+    return (uintptr_t)p - (uintptr_t)g_vram.ptr < g_vram.size;
+}
+void nv2a_gl_guest_access(const void *p, size_t len, bool write)
+{
+    uintptr_t base = (uintptr_t)g_vram.ptr, a = (uintptr_t)p;
+    if (!g_access_cbs || !len || a - base >= g_vram.size) {
+        return;
+    }
+    hwaddr lo = (a - base) & ~0xFFFull;
+    hwaddr hi = a - base + len;
+    if (hi > g_vram.size) {
+        hi = g_vram.size;
+    }
+    hi = (hi + 0xFFF) & ~0xFFFull;
+    disarm_overlapping(lo, hi - lo, NULL, 0, write);
 }
 
 static void run_callbacks(hwaddr addr, hwaddr len, bool write)

@@ -255,6 +255,95 @@ NOTE: python open() defaults to GBK here - always pass encoding='utf-8'.
         the same way if it belongs to a 4:3 frame.
       * UI scripts are plain text in extracted/Script (UI/*.cs, AI*.cs, Default.cs lists the engine
         natives) - relevant for future bot-AI work.
+- [x] (2026-11-09, user logs: Steam Deck SteamOS crash at boot; Win11 on Deck ~25-30 fps + audio stutter
+      on a small map with 7 bots, --scale 1)
+      * STEAMOS CRASH: EXCEPTION c0000005 at 0x22e9d4 info=[0 ffffffff] right after D3D's `out 80c0`. 32-bit
+        Wine raises a #GP on wbinvd/invd/rdmsr/wrmsr as an access violation at 0xffffffff (its i386
+        is_privileged_instr lacks them; Windows reports STATUS_PRIVILEGED_INSTRUCTION). Reproduced with Wine 9
+        and a synthetic XBE (wbinvd + NV2A MMIO read): old build crashes identically, new one runs.
+        cpu/mmio.cpp now emulates these on that AV signature, and rewrites cli/sti/wbinvd/invd/clts/wrmsr into
+        same-length NOPs after the first trap (DSound has ~16 wbinvd sites - each was a kernel trap, and a
+        signal round trip under Wine). Startup log names the host ("host: Wine x.y" / "Windows").
+      * Deck/Win11 log (AMD GL driver 22.40, 4C/8T Zen 2): GPU thread busy ~80% (PUSHER 1.5-1.6 s per 2 s,
+        ~25k draws/s, ~30 us/draw), of which `reports` 350-440 ms (≈1200 blocking occlusion reads per 2 s;
+        cheap on NVIDIA, not on AMD GL) and ww sync ~110 ms. Plus NOP-interrupt round trips avg 0.5-1.2 ms
+        (0.05 ms on the dev PC) = 300-500 ms per 2 s of GPU-thread idle waiting for the guest ISR.
+        APU: utilization 0.90-0.97 and 1300-1480 frames/s (< 1500 needed) -> the audio stutter.
+      * Instrumentation for the next logs: "dirty:" line adds IRQ-thread wake latency; "isr" line adds GPU irq
+        dispatch-lock wait and ISR+DPC time; "apu:" line splits vp / locked-voice wait / dsp and shows the
+        worker count.
+      * APU changes: frame thread + voice workers at THREAD_PRIORITY_HIGHEST; voice workers default to
+        min(4, logical CPUs / 2) instead of one per logical CPU (xemu wakes all of them every 0.67 ms frame);
+        XB_VP_WORKERS=N overrides. XB_AUDIO_DSP=0 = xemu's "use DSP" off (VP mix only, no GP/EP programs).
+      * To try on the Deck: XB_OCCLUSION=late, XB_AUDIO_DSP=0, mesa_glthread=true (SteamOS).
+      * Larger options (not started): (1) port xemu's Vulkan pgraph backend - AMD's Windows GL driver is the
+        weak spot, RADV/NVIDIA Vulkan have far lower per-draw cost; 32-bit Vulkan ICDs exist on all three
+        targets. (2) HLE D3D8 -> D3D11/Vulkan (Cxbx-style, no pushbuffer/surface emulation) - highest ceiling,
+        months of work. (3) DSP: JIT or native replacements for the XDK effect programs. (4) native Linux build
+        (signals/mmap instead of VEH/VirtualAlloc) only if Proton overhead (write-watch emulation, slow SEH
+        dispatch) turns out to matter.
+- [x] (2026-11-10, user report: in-match voices / weapon clashes sound blurry, pickups clear; xemu sounded better)
+      * Our vp/ is identical to xemu master (only port changes: lock-free voice_lock, locked-voice skip, worker
+        count, logs). Difference vs the user's xemu: xemu's config default is use_dsp = false (DSP off, MON_VP
+        mix); we run the DSP path.
+      * BUG (xemu too, DSP path only): after the HRTF a voice is a left/right-ear pair, but the mixbin loop used
+        samples[b % channels] - a mono 3D voice sent the LEFT-ear signal to all 4 HRTF bins and lost the right ear
+        (head-shadowed = muffled for sources on the right). MON_VP mixed both ears, so xemu's default was fine.
+        Fix (vp.c voice_process): HRTF bins 0-3 take ear b % 2, bins 4-7 (effect sends) the pre-HRTF signal.
+        Untested on hardware (no game here).
+      * Also suspicious: the voice low-pass (fmode 1 = DLS2+I3DL2 on 3D voices) is a Chamberlin SVF whose
+        coefficient f = 2^(fc/4096) is clamped to 1.0 = an 8 kHz cutoff even fully open. The fc -> Hz mapping is
+        xemu's guess. XB_VOICE_LOG now prints fc and the resulting Hz per voice (at start and +100 ms).
+      * A/B switches: XB_AUDIO_HRTF=0, XB_AUDIO_VOICE_LPF=0, XB_AUDIO_HRTF_FIX=0 (see README).
+- [x] (2026-11-10, user log: SteamOS (Proton, Wine 11.0) boots to the menu now; HANGS when a match starts)
+      * Log: match shaders compile, ~170 draws, then from ~726.9 s nothing: pfifo loop never iterates again
+        (PUSHER/reports 0 calls), APU MMIO 0 (game threads stopped too), vblank IRQs still delivered, dispatch lock
+        free. Not occlusion "late" mode (outstanding reports keep the pfifo loop polling). Root cause unknown.
+      * Hang watchdog is now always on: after 10 s without a presented frame (once the game has presented),
+        3 thread dumps + nv2a state (XB_HANG_DUMP=0 off / =N seconds). Dumps are symbolized at runtime from the
+        exe's own COFF symbol table (function+offset for our code, module+offset for DLLs, xbox:VA for game code)
+        plus likely return addresses scanned from each stack. The pfifo thread logs its tid at start.
+- [x] (2026-11-11, user logs with the hang watchdog, occlusion exact + late: same hang) ROOT CAUSE + FIX:
+      * Dump: pfifo thread blocked inside Mesa in glTexImage2D(..., NULL) called from
+        pgraph_gl_render_surface_to_texture (first render-target-as-texture of a match); all other threads wait on it.
+      * Just before, generate_texture() uploads the surface's guest memory directly (glTexImage2D(texture_data)),
+        and render-target pages are PAGE_NOACCESS (surface access callbacks). Windows: the driver's fault reaches
+        access_fault_handler, which disarms. Wine: Mesa runs Unix-side; Wine's handle_syscall_fault abandons the
+        call and returns STATUS_ACCESS_VIOLATION to the PE thunk (only a WARN) - Mesa's teximage() still holds
+        ctx->Shared->TexMutex, so the next glTexImage2D deadlocks. Reproduced with Wine 9 + llvmpipe
+        (scratch test: upload from NOACCESS memory "returns", VEH never called, next glTexImage2D hangs).
+      * Fix: compat/gl_guest_guard.c wraps glad's pointers for every GL call taking client memory
+        (Tex(Sub)Image2D/3D, CompressedTex*, BufferData/SubData, ReadPixels, GetTexImage). For a pointer into
+        guest RAM it computes the exact byte range (from (UN)PACK row length/image height/alignment and the
+        format/type) and disarms it first (nv2a_gl_guest_access = what an emulator-thread fault does). Also
+        covers vertex.c's glBufferSubData from guest RAM and surface downloads into guest memory.
+        Rule: never hand a guest pointer to a host API that may run Unix-side without disarming it first.
+- [x] (2026-11-11, user uploaded default.xbe + Script/ -> extracted/ is a local symlink, never commit game files)
+      * Confirmed: 0x22e9d4 = wbinvd (D3D init, after `mov [0x80000000], eax`). Scan of privileged instructions
+        at real instruction boundaries: the only cache/MSR instruction in executed code is that wbinvd; DSOUND
+        "rdmsr/wrmsr/invd/clts" hits are DSP images/tables. cli/sti/in/out are reported by Wine correctly.
+      * VOICE FILTER, from the code: XACT (0x2c4bda) is the only SetFilter caller. DLS2 mode: cutoff Hz clamped
+        0..8192 -> 0x2c76ee: <30 Hz -> 0x8000, >8000 Hz -> 0, else FC = 4096*log2(2 sin(pi*hz/48000)); resonance
+        0x2c774c: q = 32768*10^(-min(dB,22.5)/20). So xemu's f = 2^(FC/4096) (SVF coefficient, max 1.0 = 8 kHz)
+        and q/0x8000 are exactly right - the 8 kHz ceiling is by design. FCA = coef0 | coef1<<16 (fc | q).
+        For 3D buffers in mode 0 DSound forces FMODE 3 (I3DL2 only - xemu: no LPF).
+      * XACT also calls SetEG (0x2c315f); the multi envelope (EG 0) puts lFilterCutOff into ENV1.EF_FCSCALE
+        (CMcpxVoiceClient::SetEG 0x263bce). xemu ignored it (FIXME). Now fc_eff = FC + fcscale*32*ef, mirroring
+        xemu's pitch modulation (p + ps*32*ef). XB_AUDIO_FC_ENV=0 disables; voice log prints fcscale/ef.
+      * Every map sets an I3DL2 reverb (Script/Sn/*.cs SetAudioEnvironment(ENVIRONMENT_CITY/ROOM/...)): with the
+        DSP on, 3D voices send into it (xemu's default DSP-off has no reverb at all). XB_AUDIO_REVERB=x scales
+        sends to mixbin 10 (DSMIXBIN_I3DL2) for A/B by ear.
+- [x] (2026-11-11, user log: SteamOS now plays matches; crashed after some minutes)
+      * EXCEPTION c0000005 at 0x261118 on the APU IRQ thread: DSound's ISR read a null voice-client slot
+        ([ecx+voice*4+0x88]) - ISR run concurrently with DPC-level code. Log: 74 contested ISRs, only 19 frozen,
+        47 gave up (SuspendThread/GetThreadContext are slow under Wine and the holder is often in host code,
+        e.g. APU MMIO emulation). Second hole: when the holder released the lock during a freeze attempt,
+        freeze_dispatch_owner returned null and the ISR ran without the dispatch lock at all.
+      * ke_fire_interrupt_ex: after the 1 ms TryEnter phase, loop {TryEnter dispatch lock | freeze the holder if
+        it is in Xbox code}, dropping g_int_lock between attempts so a holder needing it can progress; run
+        concurrently only after 100 ms (logged "not freezable for 100 ms").
+      * SteamOS perf (Deck, DSP off, scale 1): median 27 fps, GPU thread ~75% busy (PUSHER ~1.5 s / 2 s), write-watch
+        sync 120-235 ms / 2 s (Wine emulates write watches), APU utilization 0.2-0.3 with the DSP off.
 - [ ] next ideas: GPU-thread per-draw cost (profile pgraph_gl draw path / shader binding), config file,
       "\??\" empty-path NtCreateFile (2x at startup), XcDESKeyParity stub, controller rumble.
 Debug tools: --dump-after N / F12 (all-thread dump), --trace ADDR,... (int3 tracepoints; TRACE_FLOATS=N env

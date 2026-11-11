@@ -336,6 +336,7 @@ static bool emulate_string(CONTEXT *c) {
 }
 
 // --- port I/O (in/out are privileged in user mode) -----------------------------
+static bool g_patch_enabled; // trap-and-patch of Xbox instructions (XB_NO_MMIO_PATCH=1 disables)
 static uint32_t g_port_logged[64];
 static int g_nport_logged;
 
@@ -353,12 +354,30 @@ static uint32_t port_read(uint16_t port, int size) {
 }
 static void port_write(uint16_t port, uint32_t val, int size) { log_port_once(port, true, val); }
 
+// Privileged no-op instructions (cache control, cli/sti, MSR writes) are rewritten into NOPs of
+// the same length after the first trap, so they never fault again.
+static void nop_out_site(uint32_t eip, int len) {
+    if (!g_patch_enabled || eip < 0x11000 || eip + len > 0x4B0000) return;
+    DWORD old;
+    if (!VirtualProtect((void *)(uintptr_t)eip, len, PAGE_EXECUTE_READWRITE, &old)) return;
+    if (len == 1) {
+        *(volatile uint8_t *)(uintptr_t)eip = 0x90; // nop
+    } else if (len == 2 && (eip & 63) != 63) {
+        // One 16-bit store (atomic within a cache line): a byte-by-byte rewrite would briefly
+        // expose a different, valid-looking instruction to other threads.
+        *(volatile uint16_t *)(uintptr_t)eip = 0x9066; // 66 90 = 2-byte nop
+    }
+    VirtualProtect((void *)(uintptr_t)eip, len, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), (void *)(uintptr_t)eip, len);
+}
+
 static bool emulate_port_io(CONTEXT *c) {
     const uint8_t *p = (const uint8_t *)c->Eip;
     int size = 4;
     if (*p == 0x66) size = 2, p++;
     uint8_t op = *p++;
     uint16_t port;
+    uint32_t eip0 = c->Eip;
     switch (op) {
     case 0xEE: port_write((uint16_t)c->Edx, c->Eax & 0xFF, 1); break;                    // out dx, al
     case 0xEF: port_write((uint16_t)c->Edx, c->Eax & mask_of(size), size); break;        // out dx, ax/eax
@@ -368,10 +387,18 @@ static bool emulate_port_io(CONTEXT *c) {
     case 0xED: set_reg(c, 0, size, port_read((uint16_t)c->Edx, size)); break;            // in ax/eax, dx
     case 0xE4: port = *p++; set_reg(c, 0, 1, port_read(port, 1)); break;
     case 0xE5: port = *p++; set_reg(c, 0, size, port_read(port, size)); break;
-    case 0xFA: case 0xFB: break;                                                          // cli / sti
+    case 0xFA: case 0xFB:                                                                 // cli / sti
+        if (p - (const uint8_t *)eip0 == 1) nop_out_site(eip0, 1);
+        break;
     case 0x0F:
-        if (*p == 0x09) { p++; break; }                                                   // wbinvd
-        return false;
+        switch (*p++) {
+        case 0x06: case 0x08: case 0x09: case 0x30:                                       // clts invd wbinvd wrmsr
+            nop_out_site(eip0, (int)(p - (const uint8_t *)eip0));
+            break;
+        case 0x32: c->Eax = 0; c->Edx = 0; break;                                         // rdmsr -> 0
+        default: return false;
+        }
+        break;
     default: return false;
     }
     c->Eip = (DWORD)(uintptr_t)p;
@@ -391,7 +418,6 @@ static int g_nsites;
 static uint8_t *g_stubs;
 static const int kMaxSites = 4096, kStubSize = 32;
 static CRITICAL_SECTION g_patch_lock;
-static bool g_patch_enabled;
 
 // plain memory as a pseudo-device, for patched instructions that sometimes address RAM
 static uint32_t ram_rd(void *, uint32_t addr, unsigned size) {
@@ -506,7 +532,21 @@ static LONG CALLBACK mmio_handler(EXCEPTION_POINTERS *ep) {
     if (ep->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION) return EXCEPTION_CONTINUE_SEARCH;
     uint32_t addr = (uint32_t)ep->ExceptionRecord->ExceptionInformation[1];
     MmioRegion *rg = find_region(addr);
-    if (!rg) return EXCEPTION_CONTINUE_SEARCH;
+    if (!rg) {
+        // Wine/Proton (32-bit): a general-protection fault on an instruction Wine does not
+        // classify as privileged (wbinvd, invd, clts, rdmsr/wrmsr) arrives as an access violation
+        // at address 0xffffffff instead of EXCEPTION_PRIV_INSTRUCTION. D3D init runs wbinvd.
+        CONTEXT *c = ep->ContextRecord;
+        if (addr == 0xFFFFFFFFu && c->Eip >= 0x11000 && c->Eip < 0x4B0000 && emulate_port_io(c)) {
+            static bool logged;
+            if (!logged) {
+                logged = true;
+                logf("privileged instruction reported as access violation (Wine) - emulated");
+            }
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
     CONTEXT *c = ep->ContextRecord;
     g_cur_ctx = c;
     uint32_t eip0 = c->Eip;
