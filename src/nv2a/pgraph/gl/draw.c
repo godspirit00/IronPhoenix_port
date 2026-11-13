@@ -24,8 +24,18 @@
 #include "debug.h"
 #include "renderer.h"
 
+/* debug (XB_NULL_DRAW=1): skip all GL work for draws and clears - measures the frame-rate ceiling
+ * of everything that is not the renderer (game code, D3D library, push buffer decode). */
+static bool null_draw(void)
+{
+    static int v = -1;
+    if (v < 0) v = getenv("XB_NULL_DRAW") != NULL;
+    return v;
+}
+
 void pgraph_gl_clear_surface(NV2AState *d, uint32_t parameter)
 {
+    if (null_draw()) return;
     PROF_SCOPE(PS_CLEAR);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
@@ -134,6 +144,7 @@ void pgraph_gl_clear_surface(NV2AState *d, uint32_t parameter)
 
 void pgraph_gl_draw_begin(NV2AState *d)
 {
+    if (null_draw()) return;
     PROF_SCOPE(PS_DRAW_BEGIN);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
@@ -334,6 +345,7 @@ void pgraph_gl_draw_begin(NV2AState *d)
 
 void pgraph_gl_draw_end(NV2AState *d)
 {
+    if (null_draw()) return;
     PROF_SCOPE(PS_DRAW_END);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
