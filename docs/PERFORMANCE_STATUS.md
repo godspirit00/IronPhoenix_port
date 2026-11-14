@@ -155,3 +155,10 @@ same-executable fallback comparison both completed without reported failures.
    the plan's 250 fps target has been achieved.
 4. Collect logs on GTX 1060, Steam Deck/Proton, and the specific Intel GPU before
    claiming a cross-machine improvement or choosing new resolution defaults.
+# Vulkan continuation
+
+A working experimental Vulkan backend and source-checkout launcher are now
+available. See [VULKAN_PROGRESS.md](VULKAN_PROGRESS.md) for current build and
+validation details. RTX 2070 combat runs still fall below 60 fps; OpenGL remains
+available. Other GPUs and texture packs are not yet validated on Vulkan.
+

@@ -45,7 +45,19 @@ Presenter completion now publishes a shared GL fence, waited before Vulkan
 overwrites or destroys the external display image. Vulkan submission already waits
 for completion before the presenter samples it. No CPU framebuffer copy is used.
 Scaled occlusion counts round up so a visible subpixel effect is not reported as
-invisible. A second full match with these fixes at 60 Hz is in progress.
+invisible. A second 185-second match with these fixes at 60 Hz completed without
+runtime validation assertions. Its 120-184 second window averaged 49.09 fps
+(32-60), with 32 periodic samples; the logger's interval is two seconds at 60 Hz.
+This is a different pacing/encounter run, not a paired speedup measurement.
+Artifacts: `scratch/perf/vk-match-fenced/`; executable SHA-256:
+`d7e86e423916c92b72013e504f68bd98f33f789c406ecc3bec0a487d13121142`.
+These runs used runtime assertions, not installed Khronos validation layers.
+The 12 performance-tool tests pass, including actual-backend marker parsing.
+The OpenGL-only build also links successfully; its 35-second startup/menu smoke
+test confirms `Renderer active: OpenGL` (`scratch/perf/gl-after-vulkan-smoke`).
+Requesting Vulkan in that build exits with code 1 and an explicit unavailable
+message before initializing the game. The delivered `build/ironphoenix.exe` is
+restored to the Vulkan-enabled build, with both backends selectable.
 
 Build/reproduce from Git Bash:
 
