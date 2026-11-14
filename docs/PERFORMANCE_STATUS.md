@@ -8,6 +8,10 @@ per-draw buffer-bind hoisting, and optional asynchronous GPU timestamps. The
 first-pass measurements below are historical, not measurements of that new build.
 Normal play now leaves detailed CPU phase timing off (`XB_CPU_TIMING=1` enables
 it). The benchmark runner explicitly enables it unless `--no-cpu-timing` is used.
+Second-pass build/VAO/pixel validation passed; normal scale-3 60 Hz cave test still
+dropped below 60 fps (42.12 mean sample FPS). A temporary per-application NVIDIA
+threading experiment did not establish a benefit and its original profile state
+was restored. See the linked assessment for final artifacts, hash, and next work.
 
 - Branch `fastpath`, starting commit `9fb8cc7`. No tracked local changes at the start.
 - Native 32-bit Windows runtime; guest CPU code runs directly. NV2A commands are

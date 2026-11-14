@@ -66,7 +66,8 @@ zero rendered draws. Surface statistics still reset when phase timing is off.
 Runner options: `--no-fast-vertex`, `--gpu-timing`, `--no-cpu-timing`. Initial
 debug cave run passed, including sampled actual VAO assertions and 32 existing
 snapshot pixel comparisons. Final debug run with bind hoisting and phase timing
-disabled is being collected in `scratch/perf/vertex-final-debug/`.
+disabled passed in `scratch/perf/vertex-final-debug/`: actual VAO assertions and
+all 32 snapshot comparisons passed. Reviewed cave combat/HUD screenshots.
 
 ## Initial measurements (RTX 2070, scale 3, 120 Hz)
 
@@ -89,3 +90,35 @@ Timestamp spans do not settle the Vulkan decision: they include dependencies and
 CPU supply gaps, and the sampled meshes vary. A Vulkan prototype can target the
 driver/submission costs but must be measured against the current backend. The
 firm 60 fps objective remains open.
+
+## Ordinary-play validation and NVIDIA threading experiment
+
+The final executable, with diagnostic timers/screenshots off, at scale 3 and the
+normal 60 Hz setting, recorded 25 / 42.12 / 61 FPS sample min/mean/max in the
+120–184 second window (`vertex-normal-play`). This confirms remaining drops.
+The occasional 61 sample reflects the periodic FPS estimator, not a new cap.
+
+The existing NVIDIA-profile helper now has a read-only `probe` command. The
+temporary `tools/perf_nvthread_test.py` refuses pre-existing application/named
+profiles and a running game; creates an application-only threaded-optimization
+override; runs the test; and removes that newly created profile in `finally`.
+It does not change the global driver profile. Cleanup and guard error paths are
+covered by mocked tests without touching driver settings.
+
+The approved temporary experiment recorded 23 / 38.09 / 60 FPS at the same
+settings (`nv-thread-off`), with a different evolving fight. It does not establish
+a performance improvement, so threaded optimization has **not** been left off.
+Original state restored and verified by `nvprofile probe`:
+`application_profile=0 named_profile=0`. Evidence:
+`scratch/perf/nv-thread-test-state.txt`. No benchmark/monitor processes remain.
+
+## Resume checkpoint
+
+- Implementation: `8c69912`; following checkpoint records validation/helper tests.
+- Current game executable SHA256:
+  `62226e2eeb98f731ef071d863f4f8c9b248591770be72ef00ca60f003a523bd0`.
+- Build passed; 11 reporting/driver-test guard and restoration tests pass.
+- Generated GLSL is unchanged; no shader-cache version bump is needed.
+- Next useful work: deterministic workload capture/replay and a Vulkan backend
+  prototype using the upstream renderer, retaining OpenGL for A/B validation.
+  Do not claim that Vulkan improves this game until the prototype is measured.

@@ -311,3 +311,12 @@ logs without phase instrumentation. Normal FPS/dirty counters still run.
 
 See [docs/VULKAN_ASSESSMENT.md](docs/VULKAN_ASSESSMENT.md) for the upstream xemu
 Vulkan integration assessment, dependencies, current validation, and paired runs.
+
+Final second-pass validation passed actual VAO assertions, all 32 snapshot pixel
+comparisons, and 11 report/driver-test guard/restoration tests. Normal 60 Hz,
+scale-3 cave run averaged 42.12 fps (samples 25–61); still below a firm 60.
+The temporary NVIDIA application-profile threading-off experiment averaged
+38.09 fps in another fight and did not establish a benefit. Its newly created
+profile was deleted and original absence verified. No driver override remains.
+Implementation checkpoint `8c69912`; final game executable SHA256 begins
+`62226e2eeb98f731`. Detailed logs/reports and remaining work are linked above.

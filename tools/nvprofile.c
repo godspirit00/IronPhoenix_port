@@ -1,5 +1,6 @@
 /* nvprofile: manage an NVIDIA driver application profile for ironphoenix.exe (NVAPI DRS).
  *   nvprofile get            show the OpenGL "Threaded optimization" value for ironphoenix.exe
+ *   nvprofile probe          read-only profile-existence guard for temporary tests
  *   nvprofile set on|off     create/update profile "Iron Phoenix" with Threaded optimization on/off
  *   nvprofile delete         remove that profile again
  * Build (32-bit, matches the 32-bit nvapi.dll in SysWOW64):
@@ -98,6 +99,24 @@ int main(int argc, char **argv) {
     static NVDRS_APPLICATION_V1 app;
     app.version = VER(NVDRS_APPLICATION_V1, 1);
     NvAPI_Status st = NvAPI_DRS_FindApplicationByName(s, aname, &p, &app);
+
+    /* Read-only guard for a temporary benchmark: never modify/delete a profile
+     * which existed before the test, including one without this application. */
+    if (!strcmp(argv[1], "probe")) {
+        if (st && st != NVAPI_EXECUTABLE_NOT_FOUND) {
+            fprintf(stderr, "application probe failed: %d\n", st);
+            return 1;
+        }
+        NvDRSProfileHandle named = NULL;
+        NvAPI_Status ns = NvAPI_DRS_FindProfileByName(s, pname, &named);
+        if (ns && ns != NVAPI_PROFILE_NOT_FOUND) {
+            fprintf(stderr, "named profile probe failed: %d\n", ns);
+            return 1;
+        }
+        printf("application_profile=%d named_profile=%d\n", st == 0, ns == 0);
+        CHECK(NvAPI_DRS_DestroySession(s));
+        return 0;
+    }
 
     if (!strcmp(argv[1], "get")) {
         if (st) { printf("no profile contains ironphoenix.exe (%d): driver default applies\n", st); return 0; }
