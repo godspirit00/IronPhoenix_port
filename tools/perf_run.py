@@ -31,6 +31,9 @@ def main():
     parser.add_argument("--no-fast-state", action="store_true")
     parser.add_argument("--no-fast-uniforms", action="store_true")
     parser.add_argument("--no-fast-copy", action="store_true")
+    parser.add_argument("--no-fast-vertex", action="store_true")
+    parser.add_argument("--gpu-timing", action="store_true")
+    parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--gl-debug", action="store_true")
     args = parser.parse_args()
     if not 0 <= args.start < args.seconds or args.scale < 1 or args.hz < 1 or args.shots < 0:
@@ -48,6 +51,9 @@ def main():
     for name, enabled in (("XB_NO_FAST_STATE", args.no_fast_state),
                           ("XB_NO_FAST_UNIFORMS", args.no_fast_uniforms),
                           ("XB_NO_FAST_COPY", args.no_fast_copy),
+                          ("XB_NO_FAST_VERTEX", args.no_fast_vertex),
+                          ("XB_GPU_TIMING", args.gpu_timing),
+                          ("XB_CPU_TIMING", not args.no_cpu_timing),
                           ("XB_GL_DEBUG", args.gl_debug)):
         env.pop(name, None)
         if enabled:
@@ -93,6 +99,8 @@ def main():
                                "fast_state": not args.no_fast_state,
                                "fast_uniforms": not args.no_fast_uniforms, "gl_debug": args.gl_debug,
                                "fast_copy": not args.no_fast_copy,
+                               "fast_vertex": not args.no_fast_vertex, "gpu_timing": args.gpu_timing,
+                               "cpu_timing": not args.no_cpu_timing,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash
     report["configuration"]["script_sha256"] = hashlib.sha256(args.script.read_bytes()).hexdigest()

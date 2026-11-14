@@ -406,10 +406,16 @@ enum { PS_DRAW_BEGIN, PS_DRAW_END, PS_FLUSH_DRAW, PS_CLEAR, PS_SURFACE_UPDATE, P
        PS_VERTEX_ATTRS, PS_PENDING, PS_REPORTS, PS_SYNC, PS_PUSHER, PS_SURF_MEMCHECK, PS_SURF_PART, PS_SURF_DL, PS_SURF_UL, PS_SURF_INVAL, PS__COUNT };
 extern int64_t g_ps_ticks[PS__COUNT];
 extern int g_ps_calls[PS__COUNT];
+extern bool g_ps_enabled;
 int64_t ps_now(void);
 typedef struct { int id; int64_t t0; } ProfScope;
-static inline void ps_end(ProfScope *s) { g_ps_ticks[s->id] += ps_now() - s->t0; g_ps_calls[s->id]++; }
-#define PROF_SCOPE(id) ProfScope __ps_##id __attribute__((cleanup(ps_end))) = {id, ps_now()}
+static inline void ps_end(ProfScope *s) {
+    if (s->id < 0) return;
+    g_ps_ticks[s->id] += ps_now() - s->t0;
+    g_ps_calls[s->id]++;
+}
+#define PROF_SCOPE(id) ProfScope __ps_##id __attribute__((cleanup(ps_end))) = \
+    {g_ps_enabled ? (id) : -1, g_ps_enabled ? ps_now() : 0}
 #endif
 
 /* Port: GL error/FBO-completeness asserts force driver synchronization; only with XB_GL_DEBUG=1 */

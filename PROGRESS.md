@@ -290,3 +290,24 @@ work. Keep that checkpoint current when resuming this branch.
   established. See the checkpoint for per-phase measurements and limitations.
 - HD 530 is the user's provisional Intel target. GTX 1060, Deck/Proton, and Intel
   validation remains necessary. No new performance guarantee on those machines.
+
+### Second pass: vertex submission and Vulkan assessment
+
+User retest reported fewer, but still present, frame-rate drops. Cache the guest
+VAO's attribute formats, enables, and constant values, and bind its common array
+buffer once per draw. Preserve dirty checks, uploads, and separate inline buffer
+identities. `XB_NO_FAST_VERTEX=1` restores original vertex calls.
+
+`XB_GPU_TIMING=1` adds nonblocking timestamp sampling (one in 64 draw flushes).
+These samples measure command spans including uploads, dependencies, and possible
+CPU-supply gaps; they do not measure total GPU frame time. Keep diagnostic timing
+off in ordinary play. `tools/perf_run.py` supports both options and reports GPU
+sample averages weighted by sample count. Five report tests pass.
+
+Detailed CPU phase timing is now opt-in (`XB_CPU_TIMING=1`) instead of reading
+the host timer throughout every draw during ordinary play. The runner enables it
+unless `--no-cpu-timing` is supplied. Six report tests pass, including FPS-only
+logs without phase instrumentation. Normal FPS/dirty counters still run.
+
+See [docs/VULKAN_ASSESSMENT.md](docs/VULKAN_ASSESSMENT.md) for the upstream xemu
+Vulkan integration assessment, dependencies, current validation, and paired runs.

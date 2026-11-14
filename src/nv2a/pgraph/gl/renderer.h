@@ -196,6 +196,25 @@ typedef struct PGRAPHGLState {
     GLuint gl_memory_buffer;
     GLuint gl_vertex_array;
     GLuint gl_inline_buffer[NV2A_VERTEXSHADER_ATTRIBUTES];
+    bool no_fast_vertex;
+    struct {
+        bool enable_valid, enabled, value_valid, pointer_valid;
+        GLfloat value[4];
+        GLuint buffer;
+        GLint size;
+        GLenum type;
+        GLboolean normalized;
+        GLsizei stride;
+        uintptr_t offset;
+        bool integer;
+    } vertex_attrib[NV2A_VERTEXSHADER_ATTRIBUTES];
+    struct {
+        bool enabled;
+        struct { GLuint query[2]; bool pending; } slots[64];
+        unsigned int cursor, draw_count, samples;
+        uint64_t elapsed_ns;
+        int64_t report_us;
+    } gpu_timing;
 
     QTAILQ_HEAD(, SurfaceBinding) surfaces;
     /* port: render targets displaced by a different-layout alias at the same memory (surface.c) */
@@ -261,6 +280,13 @@ extern GloContext *g_nv2a_context_display;
 
 unsigned int pgraph_gl_bind_inline_array(NV2AState *d);
 void pgraph_gl_bind_shaders(PGRAPHState *pg);
+void pgraph_gl_init_draw_timing(PGRAPHGLState *r);
+void pgraph_gl_finalize_draw_timing(PGRAPHGLState *r);
+void pgraph_gl_attribute_enable(PGRAPHGLState *r, unsigned int index, bool enabled);
+void pgraph_gl_attribute_value(PGRAPHGLState *r, unsigned int index, const GLfloat *value);
+void pgraph_gl_attribute_pointer(PGRAPHGLState *r, unsigned int index, GLuint buffer,
+                                 GLint size, GLenum type, GLboolean normalized,
+                                 GLsizei stride, uintptr_t offset, bool integer);
 void pgraph_gl_override_ui_squash(ShaderBinding *binding, float squash);
 void pgraph_gl_bind_textures(NV2AState *d);
 void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element, unsigned int max_element, bool inline_data, unsigned int inline_stride, unsigned int provoking_element);

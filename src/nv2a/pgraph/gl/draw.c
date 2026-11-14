@@ -24,8 +24,70 @@
 #include "debug.h"
 #include "renderer.h"
 
-/* debug (XB_NULL_DRAW=1): skip all GL work for draws and clears - measures the frame-rate ceiling
- * of everything that is not the renderer (game code, D3D library, push buffer decode). */
+/* Optional sampled GPU spans; query results are only read after availability. */
+void pgraph_gl_init_draw_timing(PGRAPHGLState *r)
+{
+    r->gpu_timing.enabled = getenv("XB_GPU_TIMING") != NULL;
+    if (!r->gpu_timing.enabled) return;
+    for (unsigned i = 0; i < ARRAY_SIZE(r->gpu_timing.slots); i++) {
+        glGenQueries(2, r->gpu_timing.slots[i].query);
+    }
+    r->gpu_timing.report_us = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
+}
+
+void pgraph_gl_finalize_draw_timing(PGRAPHGLState *r)
+{
+    if (!r->gpu_timing.enabled) return;
+    for (unsigned i = 0; i < ARRAY_SIZE(r->gpu_timing.slots); i++) {
+        glDeleteQueries(2, r->gpu_timing.slots[i].query);
+    }
+}
+
+typedef struct GpuDrawSample { PGRAPHGLState *r; int slot; } GpuDrawSample;
+
+static GpuDrawSample gpu_draw_begin(PGRAPHGLState *r)
+{
+    GpuDrawSample sample = { r, -1 };
+    if (!r->gpu_timing.enabled || (r->gpu_timing.draw_count++ & 63)) return sample;
+    for (unsigned i = 0; i < ARRAY_SIZE(r->gpu_timing.slots); i++) {
+        typeof(r->gpu_timing.slots[0]) *s = &r->gpu_timing.slots[i];
+        if (!s->pending) continue;
+        GLuint ready;
+        glGetQueryObjectuiv(s->query[1], GL_QUERY_RESULT_AVAILABLE, &ready);
+        if (!ready) continue; /* Never wait for a measurement. */
+        GLuint64 start, end;
+        glGetQueryObjectui64v(s->query[0], GL_QUERY_RESULT, &start);
+        glGetQueryObjectui64v(s->query[1], GL_QUERY_RESULT, &end);
+        r->gpu_timing.elapsed_ns += end - start;
+        r->gpu_timing.samples++;
+        s->pending = false;
+    }
+    int64_t now = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
+    if (r->gpu_timing.samples && now - r->gpu_timing.report_us >= 2000000) {
+        nv2a_log("gpu draw sample: %.3f us/draw (%u draws, 1/64 sampling)",
+                 r->gpu_timing.elapsed_ns / (1000.0 * r->gpu_timing.samples),
+                 r->gpu_timing.samples);
+        r->gpu_timing.elapsed_ns = 0;
+        r->gpu_timing.samples = 0;
+        r->gpu_timing.report_us = now;
+    }
+    unsigned index = r->gpu_timing.cursor++ % ARRAY_SIZE(r->gpu_timing.slots);
+    if (!r->gpu_timing.slots[index].pending) {
+        sample.slot = index;
+        glQueryCounter(r->gpu_timing.slots[index].query[0], GL_TIMESTAMP);
+    }
+    return sample;
+}
+
+static void gpu_draw_end(GpuDrawSample *sample)
+{
+    if (sample->slot < 0) return;
+    typeof(sample->r->gpu_timing.slots[0]) *s = &sample->r->gpu_timing.slots[sample->slot];
+    glQueryCounter(s->query[1], GL_TIMESTAMP);
+    s->pending = true;
+}
+
+/* XB_NULL_DRAW measures the non-renderer frame-rate ceiling. */
 static bool null_draw(void)
 {
     static int v = -1;
@@ -490,6 +552,7 @@ void pgraph_gl_flush_draw(NV2AState *d)
         return;
     }
     assert(r->shader_binding);
+    GpuDrawSample gpu_sample __attribute__((cleanup(gpu_draw_end))) = gpu_draw_begin(r);
 
     if (pg->draw_arrays_length) {
         NV2A_GL_DPRINTF(false, "Draw Arrays");
@@ -565,15 +628,16 @@ void pgraph_gl_flush_draw(NV2AState *d)
                 glBufferData(GL_ARRAY_BUFFER,
                              pg->inline_buffer_length * sizeof(float) * 4,
                              attr->inline_buffer, GL_STREAM_DRAW);
-                glVertexAttribPointer(i, 4, GL_FLOAT, GL_FALSE, 0, 0);
-                glEnableVertexAttribArray(i);
+                pgraph_gl_attribute_pointer(r, i, r->gl_inline_buffer[i],
+                                             4, GL_FLOAT, GL_FALSE, 0, 0, false);
+                pgraph_gl_attribute_enable(r, i, true);
                 attr->inline_buffer_populated = false;
                 memcpy(attr->inline_value,
                        attr->inline_buffer + (pg->inline_buffer_length - 1) * 4,
                        sizeof(attr->inline_value));
             } else {
-                glDisableVertexAttribArray(i);
-                glVertexAttrib4fv(i, attr->inline_value);
+                pgraph_gl_attribute_enable(r, i, false);
+                pgraph_gl_attribute_value(r, i, attr->inline_value);
             }
         }
 

@@ -24,13 +24,99 @@
 #include "debug.h"
 #include "renderer.h"
 
+/* These helpers track the guest-draw VAO. Surface-copy and display passes use
+ * their own VAOs; constant attribute values are only written through here. */
+void pgraph_gl_attribute_enable(PGRAPHGLState *r, unsigned int index, bool enabled)
+{
+    if (r->no_fast_vertex) {
+        if (enabled) glEnableVertexAttribArray(index);
+        else glDisableVertexAttribArray(index);
+        return;
+    }
+    typeof(r->vertex_attrib[0]) *a = &r->vertex_attrib[index];
+    if (!a->enable_valid || a->enabled != enabled) {
+        if (enabled) glEnableVertexAttribArray(index);
+        else glDisableVertexAttribArray(index);
+        a->enabled = enabled;
+        a->enable_valid = true;
+    }
+    static unsigned int checks;
+    if (nv2a_gl_debug() && (++checks % 257 == 0)) {
+        GLint actual;
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &actual);
+        assert(!!actual == enabled);
+    }
+}
+
+void pgraph_gl_attribute_value(PGRAPHGLState *r, unsigned int index, const GLfloat *value)
+{
+    if (r->no_fast_vertex) {
+        glVertexAttrib4fv(index, value);
+        return;
+    }
+    typeof(r->vertex_attrib[0]) *a = &r->vertex_attrib[index];
+    if (!a->value_valid || memcmp(a->value, value, sizeof(a->value))) {
+        glVertexAttrib4fv(index, value);
+        memcpy(a->value, value, sizeof(a->value));
+        a->value_valid = true;
+    }
+}
+
+/* The caller has bound buffer to GL_ARRAY_BUFFER. A buffer's storage may be
+ * updated/orphaned without changing its VAO pointer; its object ID is part of
+ * the key, including the dedicated inline-buffer path in draw.c. */
+void pgraph_gl_attribute_pointer(PGRAPHGLState *r, unsigned int index, GLuint buffer,
+                                 GLint size, GLenum type, GLboolean normalized,
+                                 GLsizei stride, uintptr_t offset, bool integer)
+{
+    if (r->no_fast_vertex) {
+        if (integer) glVertexAttribIPointer(index, size, type, stride, (void *)offset);
+        else glVertexAttribPointer(index, size, type, normalized, stride, (void *)offset);
+        return;
+    }
+    typeof(r->vertex_attrib[0]) *a = &r->vertex_attrib[index];
+    if (!a->pointer_valid || a->buffer != buffer ||
+        a->size != size || a->type != type || a->normalized != normalized ||
+        a->stride != stride || a->offset != offset || a->integer != integer) {
+        if (integer) glVertexAttribIPointer(index, size, type, stride, (void *)offset);
+        else glVertexAttribPointer(index, size, type, normalized, stride, (void *)offset);
+        a->buffer = buffer;
+        a->size = size;
+        a->type = type;
+        a->normalized = normalized;
+        a->stride = stride;
+        a->offset = offset;
+        a->integer = integer;
+        a->pointer_valid = true;
+    }
+    static unsigned int checks;
+    if (nv2a_gl_debug() && (++checks % 257 == 0)) {
+        GLint actual;
+        void *pointer;
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &actual);
+        assert((GLuint)actual == buffer);
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_SIZE, &actual);
+        assert(actual == size || (size == GL_BGRA && actual == 4));
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_TYPE, &actual);
+        assert((GLenum)actual == type);
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_STRIDE, &actual);
+        assert(actual == stride);
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_INTEGER, &actual);
+        assert(!!actual == integer);
+        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_NORMALIZED, &actual);
+        assert(!!actual == normalized);
+        glGetVertexAttribPointerv(index, GL_VERTEX_ATTRIB_ARRAY_POINTER, &pointer);
+        assert((uintptr_t)pointer == offset);
+    }
+}
+
 static void update_memory_buffer(NV2AState *d, hwaddr addr, hwaddr size,
                                  bool quick)
 {
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
-    glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
+    if (r->no_fast_vertex) glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
 
     hwaddr end = TARGET_PAGE_ALIGN(addr + size);
     addr &= TARGET_PAGE_MASK;
@@ -72,6 +158,11 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
 
     bool updated_memory_buffer = false;
     unsigned int num_elements = max_element - min_element + 1;
+    /* All active attributes in this path source the same buffer. Bind once;
+     * dirty-range uploads below must still run even when pointers are cached. */
+    if (!r->no_fast_vertex) {
+        glBindBuffer(GL_ARRAY_BUFFER, inline_data ? r->gl_inline_array_buffer : r->gl_memory_buffer);
+    }
 
     if (inline_data) {
         NV2A_GL_DGROUP_BEGIN("%s (num_elements: %d inline stride: %d)",
@@ -86,8 +177,8 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
         VertexAttribute *attr = &pg->vertex_attributes[i];
 
         if (!attr->count) {
-            glDisableVertexAttribArray(i);
-            glVertexAttrib4fv(i, attr->inline_value);
+            pgraph_gl_attribute_enable(r, i, false);
+            pgraph_gl_attribute_value(r, i, attr->inline_value);
             continue;
         }
 
@@ -144,7 +235,7 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
 
         hwaddr start = 0;
         if (inline_data) {
-            glBindBuffer(GL_ARRAY_BUFFER, r->gl_inline_array_buffer);
+            if (r->no_fast_vertex) glBindBuffer(GL_ARRAY_BUFFER, r->gl_inline_array_buffer);
             attrib_data_addr = attr->inline_array_offset;
             stride = inline_stride;
         } else {
@@ -175,20 +266,16 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
             // Stride of 0 indicates that only the first element should be
             // used.
             pgraph_update_inline_value(attr, last_entry);
-            glDisableVertexAttribArray(i);
-            glVertexAttrib4fv(i, attr->inline_value);
+            pgraph_gl_attribute_enable(r, i, false);
+            pgraph_gl_attribute_value(r, i, attr->inline_value);
             continue;
         }
 
-        if (needs_conversion) {
-            glVertexAttribIPointer(i, gl_count, gl_type, stride,
-                                   (void *)attrib_data_addr);
-        } else {
-            glVertexAttribPointer(i, gl_count, gl_type, gl_normalize, stride,
-                                  (void *)attrib_data_addr);
-        }
-
-        glEnableVertexAttribArray(i);
+        pgraph_gl_attribute_pointer(r, i,
+            inline_data ? r->gl_inline_array_buffer : r->gl_memory_buffer,
+            gl_count, gl_type, needs_conversion ? GL_FALSE : gl_normalize,
+            stride, attrib_data_addr, needs_conversion);
+        pgraph_gl_attribute_enable(r, i, true);
         last_entry += stride * provoking_element_index;
         pgraph_update_inline_value(attr, last_entry);
     }

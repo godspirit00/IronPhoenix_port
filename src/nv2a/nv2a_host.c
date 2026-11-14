@@ -394,7 +394,7 @@ static DWORD WINAPI vblank_thread(void *arg)
             char isr[160];
             ke_isr_stats(isr, sizeof isr);
             nv2a_log("%s | %s", vis, isr);
-            {
+            if (g_ps_enabled) {
                 static const char *names[PS__COUNT] = {"draw_begin", "draw_end", "flush_draw", "clear", "surf_update", "blit",
                                                        "textures", "shaders", "vtx_attrs", "pending", "reports", "sync", "PUSHER", "surf_memcheck", "surf_part", "surf_dl", "surf_ul", "surf_inval"};
                 char pb[1200];
@@ -407,10 +407,10 @@ static DWORD WINAPI vblank_thread(void *arg)
                     g_ps_calls[i] = 0;
                 }
                 nv2a_log("gpu time: %s | rebind %d memdirty %d (unchanged %d) create %d park %d restore %d", pb, g_sp_rebind, g_sp_memdirty, g_sp_falsedirty, g_sp_create, g_sp_park, g_sp_restore);
-                g_sp_rebind = g_sp_memdirty = g_sp_create = g_sp_park = g_sp_restore = g_sp_falsedirty = 0;
-                extern void debug_gect_report(void);
-                debug_gect_report();
             }
+            g_sp_rebind = g_sp_memdirty = g_sp_create = g_sp_park = g_sp_restore = g_sp_falsedirty = 0;
+            extern void debug_gect_report(void);
+            debug_gect_report();
             LARGE_INTEGER qf;
             QueryPerformanceFrequency(&qf);
             nv2a_log("perf: %d fps, last frame %d ms | ww sync %ld (%.1f ms) discard %ld | reports deferred %ld blocking %ld | %s", g_nv2a_stats.increment_fps,
@@ -461,6 +461,7 @@ static void sync_run(uint32_t first, uint32_t end_page)
 volatile LONG g_ww_queries, g_ww_pages;
 int64_t g_ps_ticks[PS__COUNT];
 int g_ps_calls[PS__COUNT];
+bool g_ps_enabled;
 int64_t ps_now(void)
 {
     LARGE_INTEGER t;
@@ -769,6 +770,8 @@ void nv2a_host_context_init(void)
 
 void nv2a_host_init(uint8_t *ram, uint32_t ram_size)
 {
+    g_ps_enabled = getenv("XB_CPU_TIMING") != NULL;
+    nv2a_log("CPU phase timing: %s", g_ps_enabled ? "enabled" : "disabled (XB_CPU_TIMING=1 to enable)");
     InitializeCriticalSection(&g_bql);
     g_irq_event = CreateEventA(NULL, FALSE, FALSE, NULL);
 

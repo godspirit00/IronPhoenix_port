@@ -49,6 +49,20 @@ class PerfReportTests(unittest.TestCase):
         self.assertEqual(result["snapshot_validation_checks"], 1)
         self.assertTrue(any("validation failure" in warning for warning in result["warnings"]))
 
+    def test_gpu_samples_are_weighted_and_windowed(self):
+        result = self.report(
+            "[ 1 100] gpu draw sample: 100.000 us/draw (10 draws, 1/64 sampling)\n"
+            "[ 1 600] gpu draw sample: 2.000 us/draw (10 draws, 1/64 sampling)\n"
+            "[ 1 1100] gpu draw sample: 4.000 us/draw (30 draws, 1/64 sampling)\n",
+            start=0.5, end=1)
+        self.assertEqual(result["gpu_draw_sample"], {"samples": 40, "mean_us": 3.5})
+
+    def test_fps_only_run_without_phase_instrumentation(self):
+        result = self.report("[ 1 100] starting\n[ 1 1100] perf: 60 fps\n")
+        self.assertFalse(result["warnings"])
+        self.assertIsNone(result["draw_calls"])
+        self.assertEqual(result["cpu_phase_us_per_draw"], {})
+
 
 if __name__ == "__main__":
     unittest.main()

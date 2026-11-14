@@ -48,6 +48,7 @@ static void pgraph_gl_init(NV2AState *d, Error **errp)
 
     pg->gl_renderer_state = g_malloc0(sizeof(*pg->gl_renderer_state));
     PGRAPHGLState *r = pg->gl_renderer_state;
+    r->no_fast_vertex = getenv("XB_NO_FAST_VERTEX") != NULL;
 
     /* fire up opengl */
     glo_set_current(g_nv2a_context_render);
@@ -68,6 +69,7 @@ static void pgraph_gl_init(NV2AState *d, Error **errp)
     pgraph_gl_init_reports(d);
     pgraph_gl_init_textures(d);
     pgraph_gl_init_buffers(d);
+    pgraph_gl_init_draw_timing(r);
     pgraph_gl_init_shaders(pg);
     pgraph_gl_init_display(d);
 
@@ -91,6 +93,7 @@ static void pgraph_gl_finalize(NV2AState *d)
     pgraph_gl_finalize_textures(pg);
     pgraph_gl_finalize_reports(pg);
     pgraph_gl_finalize_buffers(pg);
+    pgraph_gl_finalize_draw_timing(pg->gl_renderer_state);
     pgraph_gl_finalize_display(pg);
 
     glo_set_current(NULL);
