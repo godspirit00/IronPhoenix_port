@@ -61,7 +61,7 @@ Preserved executable: `scratch/perf/ironphoenix-baseline.exe`; preserved older l
   scale 3. Add `--shots 0` for timing comparisons, `--gl-debug` for validation.
 - `python tools/perf_report.py LOG --start 120 --end 184` reports a chosen window.
   It warns about truncated runs, firmware exits, and missing rendered frames.
-  Scene identification still requires screenshots. Three parser tests pass:
+  Scene identification still requires screenshots. Four parser tests pass:
   `python -m unittest discover -s tools -p test_perf_report.py`.
 - `scratch/perf/route-isolated/` contains the validated cave route and debug-run
   screenshots/report. `state-baseline/` is the original fixed-state path timing run.
@@ -92,11 +92,19 @@ elapsed window 120–184 seconds:
 |---|---|---|
 | Original state and uniform submission | 14 / 40.17 / 74 | 15.489 |
 | Cached state and uniforms | 31 / 57.48 / 93 | 12.526 |
+| Final build, including snapshot copies | 26 / 41.31 / 62 | 13.730 |
+| Same final executable, all three optimizations disabled | 15 / 39.66 / 77 | 14.235 |
 
 Artifacts: `scratch/perf/state-baseline/` and `state-uniforms-fast/`. These are
 single evolving combat runs, not deterministic replays. The number of draws per
 frame differs with combat/camera state, so do not describe the FPS ratio as a
-proven repeatable speedup. The strict 60 fps minimum is not met yet. Repeat runs
+proven repeatable speedup. Final runs are saved in `final-fast-scale3/` and
+`final-original-scale3/`, with identical executable/script hashes. The final
+comparison is only about 4% different in mean FPS, within a variable combat
+workload; do not lead with the earlier 57.48 fps result or claim a large speedup.
+Uniform CPU time was 3.104 us/call enabled vs 2.764 disabled on this NVIDIA driver,
+so caching uniforms is not established as a win here and needs isolation testing.
+The strict 60 fps minimum is not met yet. Repeat runs
 and per-frame GPU timings are still needed. No other target hardware tested.
 
 ## Snapshot copy experiment
@@ -112,13 +120,27 @@ and shader behavior. The slow fallback invalidates cached allocation metadata.
 shader path using byte-for-byte RGBA readbacks. This is deliberately expensive
 and excluded from timing runs. Build passed. All 32 comparisons in
 `scratch/perf/copies-conformance/` matched byte for byte (RGBA8 / RGB565 snapshots,
-including 960x720 scaled targets). Final no-debug timing comparison pending.
+including 1920x1440 and 960x720 scaled targets). Final no-debug timing and the
+same-executable fallback comparison both completed without reported failures.
+
+## Saved state
+
+- Implementation checkpoint: `a8de42f`; subsequent checkpoint records final results.
+- Built executable: `build/ironphoenix.exe`, SHA256
+  `2e04823258034f368923e1801bd18e35a3985e4919c644e9f9d591cb2514b081`.
+- No shader generator changes; existing binary shader cache remains compatible.
+- Existing `.claude/` worktrees remain untouched and untracked.
+- All benchmark processes were ended after their measurement windows.
+- This is a validated first optimization pass, not completion of the overall
+  high-FPS goal. Cross-machine testing and further profiling remain required.
 
 ## Next steps
 
-1. Finish baseline and compare cached-state/uniform paths at identical settings.
-2. Finish final no-debug timing and record remaining performance limits.
+1. Capture deterministic scene workloads and per-frame CPU/GPU timings before
+   making stronger FPS claims. Isolate uniform-cache cost before further tuning.
+2. Profile submission/driver waits and command decoding. First-pass changes do
+   not establish a firm 60 fps, and the busiest combat remains below that target.
 3. Continue decode/texture/vertex/shader work based on measurements. Do not claim
    the plan's 250 fps target has been achieved.
-5. Collect logs on GTX 1060, Steam Deck/Proton, and the specific Intel GPU before
+4. Collect logs on GTX 1060, Steam Deck/Proton, and the specific Intel GPU before
    claiming a cross-machine improvement or choosing new resolution defaults.

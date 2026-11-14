@@ -285,5 +285,8 @@ work. Keep that checkpoint current when resuming this branch.
 - Initial RTX 2070 scale-3 cave timing samples: original 40.17 fps mean, cached
   state/uniforms 57.48 fps mean (120–184 seconds). Combat varies across runs;
   these are provisional observations, not a guaranteed speedup or a firm 60 fps.
+- Final same-executable comparison: all optimizations 41.31 fps mean, all three
+  disabled 39.66 fps mean. Combat varies; a large repeatable FPS gain is not
+  established. See the checkpoint for per-phase measurements and limitations.
 - HD 530 is the user's provisional Intel target. GTX 1060, Deck/Proton, and Intel
   validation remains necessary. No new performance guarantee on those machines.
