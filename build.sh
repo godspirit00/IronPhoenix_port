@@ -42,9 +42,13 @@ for p in $pids; do wait $p || exit 1; done
 RES=$OBJ/reserve.S.o
 OBJS="$RES $(echo $OBJS | tr ' ' '\n' | grep -v reserve.S.o | tr '\n' ' ')"
 echo "  LD $OUT/ironphoenix.exe"
-$CXX -o $OUT/ironphoenix.exe $OBJS -static -Wl,--image-base=0x10000 -Wl,--disable-dynamicbase -Wl,--large-address-aware \
+if ! $CXX -o $OUT/ironphoenix.exe $OBJS -static -Wl,--image-base=0x10000 -Wl,--disable-dynamicbase -Wl,--large-address-aware \
   -Wl,-Xlink=-merge:.buildid=.axbe,-Xlink=-merge:.text=.axbe,-Xlink=-merge:.rdata=.axbe,-Xlink=-merge:.data=.axbe \
-  -lwinmm -luser32 -lgdi32 -ldwmapi -lole32 -lopengl32 -luuid -lksuser -lwindowscodecs 2>&1 | grep -v "align specified without /driver" || true
+  -lwinmm -luser32 -lgdi32 -ldwmapi -lole32 -lopengl32 -luuid -lksuser -lwindowscodecs > "$OUT/link.log" 2>&1; then
+  cat "$OUT/link.log"
+  exit 1
+fi
+grep -v "align specified without /driver" "$OUT/link.log" || true
 [ -f $OUT/ironphoenix.exe ] || exit 1
 $TC/llvm-objdump -h $OUT/ironphoenix.exe | grep -E "axbe"
 # Sanity: a kernel export implemented with the wrong stdcall arg count silently falls back to

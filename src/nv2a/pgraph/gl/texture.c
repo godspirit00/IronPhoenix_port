@@ -823,6 +823,8 @@ static TextureBinding* generate_texture(const TextureShape s,
     ret->addrv = 0xFFFFFFFF;
     ret->addrp = 0xFFFFFFFF;
     ret->border_color_set = false;
+    ret->copy_width = ret->copy_height = 0;
+    ret->copy_internal_format = 0;
     return ret;
 }
 

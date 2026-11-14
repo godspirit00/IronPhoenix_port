@@ -51,6 +51,10 @@ The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos
 Developer options (`--trace`, `--profile`, `--input`, `--audio-dump`, `--shot-every`, `--dump-after`,
 `XB_*` environment variables) are documented in [PROGRESS.md](PROGRESS.md).
 
+Performance testing and current optimization status are recorded in
+[docs/PERFORMANCE_STATUS.md](docs/PERFORMANCE_STATUS.md), including repeatable
+benchmark commands and switches for comparing the original rendering paths.
+
 ## Controls
 
 Xbox controllers map to XInput gamepads (Xbox 360/One/Series pads). Keyboard fallback:

@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
     int dump_after = 0;
     const char *trace_list = nullptr;
     const char *input_script = nullptr;
+    bool input_only = false;
     get_exe_dir(exe_dir, sizeof exe_dir);
     snprintf(g_game_dir, sizeof g_game_dir, "%s\\game", exe_dir);
     snprintf(g_save_dir, sizeof g_save_dir, "%s\\save", exe_dir);
@@ -104,6 +105,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--dump-after") && i + 1 < argc) dump_after = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace_list = argv[++i];
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_script = argv[++i];
+        else if (!strcmp(argv[i], "--input-only")) input_only = true;
         else if (!strcmp(argv[i], "--audio-dump") && i + 1 < argc) audio_set_dump(argv[++i]);
         else if (!strcmp(argv[i], "--profile") && i + 1 < argc) {
             int a = 0, b = 10;
@@ -151,7 +153,7 @@ int main(int argc, char **argv) {
         logf("mmio bench: %.2f us per trapped read (%08x)", (t1.QuadPart - t0.QuadPart) * 1e6 / f.QuadPart / 10000, x);
     }
     if (trace_list) debug_add_tracepoints(trace_list);
-    if (input_script) hle_input_set_script(input_script);
+    if (input_script) hle_input_set_script(input_script, input_only);
 
     HANDLE t = CreateThread(nullptr, 1 << 20, xbox_entry_thread, nullptr, 0, nullptr);
     video_main_loop(); // window / message pump / presentation

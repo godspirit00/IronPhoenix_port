@@ -106,6 +106,9 @@ static void set_texture_sampler_uniforms(ShaderBinding *binding)
 
 static void update_shader_uniform_locs(ShaderBinding *binding)
 {
+    /* Linking or loading a program binary resets its uniform storage. */
+    g_free(binding->uniform_cache);
+    binding->uniform_cache = NULL;
     char tmp[64];
 
     for (int i = 0; i < ARRAY_SIZE(binding->uniform_locs.vsh); i++) {
@@ -702,6 +705,7 @@ static void shader_cache_entry_init(Lru *lru, LruNode *node, const void *state)
     binding->cached = false;
     binding->program = NULL;
     binding->save_thread = NULL;
+    binding->uniform_cache = NULL;
 }
 
 static void shader_cache_entry_post_evict(Lru *lru, LruNode *node)
@@ -714,6 +718,8 @@ static void shader_cache_entry_post_evict(Lru *lru, LruNode *node)
     }
 
     glDeleteProgram(binding->gl_program);
+    g_free(binding->uniform_cache);
+    binding->uniform_cache = NULL;
     if (binding->program) {
         g_free(binding->program);
     }
@@ -752,6 +758,7 @@ void pgraph_gl_init_shaders(PGRAPHState *pg)
     r->shader_cache_entries = malloc(shader_cache_size * sizeof(ShaderBinding));
     assert(r->shader_cache_entries != NULL);
     for (int i = 0; i < shader_cache_size; i++) {
+        r->shader_cache_entries[i].uniform_cache = NULL;
         lru_add_free(&r->shader_cache, &r->shader_cache_entries[i].node);
     }
 
@@ -787,6 +794,10 @@ void pgraph_gl_finalize_shaders(PGRAPHState *pg)
 
     // Clear out shader cache
     pgraph_gl_shader_write_cache_reload_list(pg); // FIXME: also flushes, rename for clarity
+    for (int i = 0; i < r->shader_cache.num_used + r->shader_cache.num_free; i++) {
+        /* See allocation below: unused cache entries always have NULL here. */
+        g_free(r->shader_cache_entries[i].uniform_cache);
+    }
     free(r->shader_cache_entries);
     r->shader_cache_entries = NULL;
 
@@ -930,8 +941,25 @@ void pgraph_gl_shader_cache_to_disk(ShaderBinding *binding)
     qemu_thread_create(binding->save_thread, name, shader_write_to_disk, binding, QEMU_THREAD_JOINABLE);
 }
 
+typedef struct ShaderUniformCache {
+    bool valid;
+    VshUniformValues vsh;
+    PshUniformValues psh;
+} ShaderUniformCache;
+
+/* Full-width UI draws override this after the ordinary uniform update. Record
+ * the actual program value so the next draw restores its requested squash. */
+void pgraph_gl_override_ui_squash(ShaderBinding *binding, float squash)
+{
+    glUniform1f(binding->uniform_locs.vsh[VshUniform_uiSquash], squash);
+    if (binding->uniform_cache) {
+        binding->uniform_cache->vsh.uiSquash[0] = squash;
+    }
+}
+
 static void apply_uniform_updates(const UniformInfo *info, int *locs,
-                                  void *values, size_t count)
+                                  void *values, void *previous, bool valid,
+                                  size_t count)
 {
     for (int i = 0; i < count; i++) {
         if (locs[i] == -1) {
@@ -939,6 +967,12 @@ static void apply_uniform_updates(const UniformInfo *info, int *locs,
         }
 
         void *value = (char*)values + info[i].val_offs;
+        if (previous) {
+            void *old = (char*)previous + info[i].val_offs;
+            size_t size = info[i].size * info[i].count;
+            if (valid && !memcmp(old, value, size)) continue;
+            memcpy(old, value, size);
+        }
 
         switch (info[i].type) {
         case UniformElementType_uint:
@@ -976,29 +1010,40 @@ static void apply_uniform_updates(const UniformInfo *info, int *locs,
     assert(!nv2a_gl_debug() || glGetError() == GL_NO_ERROR);
 }
 
-// FIXME: Dirty tracking
 // FIXME: Consider UBO to align with VK renderer
 static void update_shader_uniforms(PGRAPHState *pg, ShaderBinding *binding)
 {
     PGRAPHGLState *r = pg->gl_renderer_state;
+    static int disabled = -1;
+    if (disabled < 0) disabled = getenv("XB_NO_FAST_UNIFORMS") != NULL;
+    if (!disabled && !binding->uniform_cache) {
+        binding->uniform_cache = g_malloc0(sizeof(ShaderUniformCache));
+    }
+    ShaderUniformCache *cache = disabled ? NULL : binding->uniform_cache;
 
-    VshUniformValues vsh_values;
+    /* Some uniform arrays contain inactive lanes which the generators leave
+     * untouched. Keep those deterministic before comparing/uploading arrays. */
+    VshUniformValues vsh_values = {0};
     pgraph_glsl_set_vsh_uniform_values(pg, &binding->state.vsh,
                                   binding->uniform_locs.vsh, &vsh_values);
     apply_uniform_updates(VshUniformInfo, binding->uniform_locs.vsh,
-                          &vsh_values, VshUniform__COUNT);
+                          &vsh_values, cache ? &cache->vsh : NULL,
+                          cache && cache->valid, VshUniform__COUNT);
 
-    PshUniformValues psh_values;
+    PshUniformValues psh_values = {0};
     pgraph_glsl_set_psh_uniform_values(pg, binding->uniform_locs.psh, &psh_values);
 
     for (int i = 0; i < 4; i++) {
+        psh_values.texScale[i] = 1.0f;
         if (r->texture_binding[i] != NULL) {
             float scale = r->texture_binding[i]->scale;
             psh_values.texScale[i] = scale;
         }
     }
     apply_uniform_updates(PshUniformInfo, binding->uniform_locs.psh,
-                          &psh_values, PshUniform__COUNT);
+                          &psh_values, cache ? &cache->psh : NULL,
+                          cache && cache->valid, PshUniform__COUNT);
+    if (cache) cache->valid = true;
 }
 
 void pgraph_gl_bind_shaders(PGRAPHState *pg)

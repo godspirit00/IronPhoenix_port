@@ -85,6 +85,9 @@ typedef struct TextureBinding {
     bool border_color_set;
     GLenum gl_target;
     GLuint gl_texture;
+    /* Storage last allocated by the surface snapshot path. */
+    unsigned int copy_width, copy_height;
+    GLint copy_internal_format;
 } TextureBinding;
 
 typedef struct ShaderModuleCacheKey {
@@ -124,6 +127,8 @@ typedef struct ShaderBinding {
 
     GLuint gl_program;
     GLenum gl_primitive_mode;
+    /* Allocated only for programs actually drawn, not all 50K cache slots. */
+    struct ShaderUniformCache *uniform_cache;
 
     struct {
         PshUniformLocs psh;
@@ -172,6 +177,11 @@ typedef struct QueryReport {
 } QueryReport;
 
 typedef struct PGRAPHGLState {
+    struct {
+        uint64_t valid;
+        uint32_t value[64][4];
+    } draw_state;
+
     GLuint gl_framebuffer;
     GLuint gl_display_buffer;
     GLint gl_display_buffer_internal_format;
@@ -251,6 +261,7 @@ extern GloContext *g_nv2a_context_display;
 
 unsigned int pgraph_gl_bind_inline_array(NV2AState *d);
 void pgraph_gl_bind_shaders(PGRAPHState *pg);
+void pgraph_gl_override_ui_squash(ShaderBinding *binding, float squash);
 void pgraph_gl_bind_textures(NV2AState *d);
 void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element, unsigned int max_element, bool inline_data, unsigned int inline_stride, unsigned int provoking_element);
 bool pgraph_gl_check_surface_to_texture_compatibility(const SurfaceBinding *surface, const TextureShape *shape);

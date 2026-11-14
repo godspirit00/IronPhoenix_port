@@ -227,6 +227,8 @@ static void render_surface_to(NV2AState *d, SurfaceBinding *surface,
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
+    r->draw_state.valid = 0; /* This pass overwrites fixed draw state. */
+
     glActiveTexture(GL_TEXTURE0 + texture_unit);
     glBindFramebuffer(GL_FRAMEBUFFER, r->s2t_rndr.fbo);
 
@@ -307,10 +309,44 @@ static void render_surface_to_texture_slow(NV2AState *d,
     glBindTexture(texture->gl_target, texture->gl_texture);
 }
 
-/* Note: This function is intended to be called before PGRAPH configures GL
- * state for rendering; it will configure GL state here but only restore a
- * couple of items.
- */
+/* Debug-only conformance check against the original shader pass, including
+ * format conversion and orientation. Never run readbacks in timing runs. */
+static void validate_surface_copy(NV2AState *d, SurfaceBinding *surface,
+                                 TextureBinding *texture, const ColorFormatInfo *fmt,
+                                 int unit, unsigned int width, unsigned int height)
+{
+    static unsigned int checks;
+    if (!nv2a_gl_debug() || checks >= 32) return;
+    checks++;
+    size_t size = (size_t)width * height * 4;
+    uint8_t *actual = g_malloc(size), *expected = g_malloc(size);
+    GLint pack_alignment;
+    glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glBindTexture(GL_TEXTURE_2D, texture->gl_texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, actual);
+    GLuint reference;
+    glGenTextures(1, &reference);
+    glBindTexture(GL_TEXTURE_2D, reference);
+    glTexImage2D(GL_TEXTURE_2D, 0, fmt->gl_internal_format, width, height, 0,
+                 fmt->gl_format, fmt->gl_type, NULL);
+    render_surface_to(d, surface, unit, GL_TEXTURE_2D, reference, width, height);
+    glBindTexture(GL_TEXTURE_2D, reference);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, expected);
+    bool equal = !memcmp(actual, expected, size);
+    nv2a_log("surface snapshot check %u: %ux%u format %x %s", checks, width, height,
+             fmt->gl_internal_format, equal ? "identical" : "MISMATCH");
+    glDeleteTextures(1, &reference);
+    glBindTexture(GL_TEXTURE_2D, texture->gl_texture);
+    glPixelStorei(GL_PACK_ALIGNMENT, pack_alignment);
+    g_free(actual);
+    g_free(expected);
+    assert(equal);
+    assert(glGetError() == GL_NO_ERROR);
+}
+
+/* Called before PGRAPH configures draw state. The shader fallback changes GL
+ * state and restores only the framebuffer, program, and vertex array. */
 void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
                                       TextureBinding *texture,
                                       TextureShape *texture_shape,
@@ -326,6 +362,7 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
     nv2a_profile_inc_counter(NV2A_PROF_SURF_TO_TEX);
 
     if (!surface_to_texture_can_fastpath(surface, texture_shape)) {
+        texture->copy_internal_format = 0; /* Fallback replaces texture storage. */
         render_surface_to_texture_slow(d, surface, texture,
                                               texture_shape, texture_unit);
         return;
@@ -334,13 +371,41 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
     unsigned int width = texture_shape->width, height = texture_shape->height;
     pgraph_apply_scaling_factor(pg, &width, &height);
 
+    static int no_fast_copy = -1;
+    if (no_fast_copy < 0) no_fast_copy = getenv("XB_NO_FAST_COPY") != NULL;
+
     glActiveTexture(GL_TEXTURE0 + texture_unit);
     glBindTexture(texture->gl_target, texture->gl_texture);
     glTexParameteri(texture->gl_target, GL_TEXTURE_BASE_LEVEL, 0);
     glTexParameteri(texture->gl_target, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(texture->gl_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(texture->gl_target, 0, f->gl_internal_format, width, height, 0,
-                 f->gl_format, f->gl_type, NULL);
+    if (no_fast_copy || texture->copy_width != width || texture->copy_height != height ||
+        texture->copy_internal_format != f->gl_internal_format) {
+        glTexImage2D(texture->gl_target, 0, f->gl_internal_format, width, height, 0,
+                     f->gl_format, f->gl_type, NULL);
+        texture->copy_width = width;
+        texture->copy_height = height;
+        texture->copy_internal_format = f->gl_internal_format;
+    }
+
+    /* The old triangle samples at texel centers without scaling or flipping.
+     * For identical normalized color formats a raw copy produces the same
+     * snapshot, without a fullscreen shader pass or fixed-state changes. Keep
+     * a separate texture: directly sampling the render target would introduce
+     * feedback and destroy the snapshot semantics used by post effects. */
+    if (!no_fast_copy && glCopyImageSubData && texture->gl_target == GL_TEXTURE_2D &&
+        f->gl_internal_format == surface->fmt.gl_internal_format &&
+        (f->gl_internal_format == GL_RGBA8 || f->gl_internal_format == GL_RGB8 ||
+         f->gl_internal_format == GL_RGB565) &&
+        width <= surface->width * pg->surface_scale_factor &&
+        height <= surface->height * pg->surface_scale_factor) {
+        glCopyImageSubData(surface->gl_buffer, GL_TEXTURE_2D, 0, 0, 0, 0,
+                           texture->gl_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+                           width, height, 1);
+        assert(!nv2a_gl_debug() || glGetError() == GL_NO_ERROR);
+        validate_surface_copy(d, surface, texture, f, texture_unit, width, height);
+        return;
+    }
     glBindTexture(texture->gl_target, 0);
     render_surface_to(d, surface, texture_unit, texture->gl_target,
                              texture->gl_texture, width, height);

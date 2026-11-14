@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <xinput.h>
 #include <stdlib.h>
+#include <vector>
 
 #pragma pack(push, 1)
 struct X_XINPUT_GAMEPAD {
@@ -54,30 +55,32 @@ struct ScriptedPress {
     uint32_t at_ms;
     char button[16];
 };
-static ScriptedPress g_script[64];
-static int g_nscript;
+static std::vector<ScriptedPress> g_script;
 static DWORD g_script_t0;
+static bool g_script_exclusive;
 
-void hle_input_set_script(const char *spec) {
+void hle_input_set_script(const char *spec, bool exclusive) {
+    g_script_exclusive = exclusive;
     g_script_t0 = GetTickCount();
+    g_script.clear();
     const char *p = spec;
-    while (*p && g_nscript < 64) {
+    while (*p) {
+        ScriptedPress press = {};
         double t = strtod(p, (char **)&p);
         if (*p != ':') break;
         p++;
         int n = 0;
-        while (*p && *p != ',' && n < 15) g_script[g_nscript].button[n++] = *p++;
-        g_script[g_nscript].button[n] = 0;
-        g_script[g_nscript].at_ms = (uint32_t)(t * 1000);
-        g_nscript++;
+        while (*p && *p != ',' && n < 15) press.button[n++] = *p++;
+        press.at_ms = (uint32_t)(t * 1000);
+        g_script.push_back(press);
         if (*p == ',') p++;
     }
-    logf("input script: %d presses", g_nscript);
+    logf("input script: %u presses", (unsigned)g_script.size());
 }
 
 static void apply_script(X_XINPUT_GAMEPAD *g) {
     uint32_t now = GetTickCount() - g_script_t0;
-    for (int i = 0; i < g_nscript; i++) {
+    for (size_t i = 0; i < g_script.size(); i++) {
         if (now < g_script[i].at_ms || now > g_script[i].at_ms + 150) continue;
         const char *b = g_script[i].button;
         if (!strcmp(b, "start")) g->wButtons |= XB_START;
@@ -97,6 +100,10 @@ static void apply_script(X_XINPUT_GAMEPAD *g) {
 
 static void read_pad(int port, X_XINPUT_GAMEPAD *g) {
     memset(g, 0, sizeof *g);
+    if (g_script_exclusive) {
+        if (port == 0) apply_script(g);
+        return;
+    }
     XINPUT_STATE s;
     if (pXInputGetState && pXInputGetState(port, &s) == ERROR_SUCCESS) {
         WORD b = s.Gamepad.wButtons;

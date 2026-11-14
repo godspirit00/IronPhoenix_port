@@ -33,6 +33,52 @@ static bool null_draw(void)
     return v;
 }
 
+enum {
+    DS_BLEND, DS_CULL_FACE, DS_POLYGON_OFFSET_FILL, DS_POLYGON_OFFSET_LINE,
+    DS_POLYGON_OFFSET_POINT, DS_DEPTH_TEST, DS_DEPTH_CLAMP, DS_STENCIL_TEST,
+    DS_DITHER, DS_PROGRAM_POINT_SIZE, DS_LINE_SMOOTH, DS_POLYGON_SMOOTH,
+    DS_SCISSOR_TEST, DS_COLORMASK, DS_DEPTHMASK, DS_STENCILMASK, DS_BLENDFUNC,
+    DS_BLENDEQUATION, DS_BLENDCOLOR, DS_CULLFACE, DS_FRONTFACE, DS_DEPTHFUNC,
+    DS_PROVOKINGVERTEX, DS_STENCILFUNC, DS_STENCILOP, DS_LINEWIDTH, DS_VIEWPORT,
+    DS_SCISSOR
+};
+
+/* Only the render context uses this cache. Clear and surface-copy passes
+ * invalidate it when they issue fixed-state calls outside draw_begin. The
+ * display and shader-loader contexts have independent GL state. */
+static bool draw_state_changed(PGRAPHGLState *r, unsigned slot,
+                               const void *value, size_t size)
+{
+    static int disabled = -1;
+    if (disabled < 0) disabled = getenv("XB_NO_FAST_STATE") != NULL;
+    if (disabled) return true;
+    assert(slot < 64 && size <= sizeof(r->draw_state.value[slot]));
+    uint64_t bit = UINT64_C(1) << slot;
+    if ((r->draw_state.valid & bit) &&
+        !memcmp(r->draw_state.value[slot], value, size)) return false;
+    memcpy(r->draw_state.value[slot], value, size);
+    r->draw_state.valid |= bit;
+    return true;
+}
+
+static void draw_capability(PGRAPHGLState *r, unsigned slot, GLenum cap, bool on)
+{
+    GLint value = on;
+    if (draw_state_changed(r, slot, &value, sizeof(value))) {
+        if (on) glEnable(cap); else glDisable(cap);
+    }
+}
+
+/* Homogeneous arrays avoid padding bytes in the comparison. */
+#define DRAW_STATE_I(slot, call, ...) do { \
+    const GLint value[] = {__VA_ARGS__}; \
+    if (draw_state_changed(r, slot, value, sizeof(value))) call(__VA_ARGS__); \
+} while (0)
+#define DRAW_STATE_F(slot, call, ...) do { \
+    const GLfloat value[] = {__VA_ARGS__}; \
+    if (draw_state_changed(r, slot, value, sizeof(value))) call(__VA_ARGS__); \
+} while (0)
+
 void pgraph_gl_clear_surface(NV2AState *d, uint32_t parameter)
 {
     if (null_draw()) return;
@@ -139,6 +185,7 @@ void pgraph_gl_clear_surface(NV2AState *d, uint32_t parameter)
         r->zeta_binding->cleared = full_clear && write_zeta;
     }
     
+    r->draw_state.valid = 0;
     pg->clearing = false;
 }
 
@@ -173,34 +220,34 @@ void pgraph_gl_draw_begin(NV2AState *d)
     pgraph_gl_bind_textures(d);
     pgraph_gl_bind_shaders(pg);
 
-    glColorMask(mask_red, mask_green, mask_blue, mask_alpha);
-    glDepthMask(!!(control_0 & NV_PGRAPH_CONTROL_0_ZWRITEENABLE));
-    glStencilMask(GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_1),
+    DRAW_STATE_I(DS_COLORMASK, glColorMask, mask_red, mask_green, mask_blue, mask_alpha);
+    DRAW_STATE_I(DS_DEPTHMASK, glDepthMask, !!(control_0 & NV_PGRAPH_CONTROL_0_ZWRITEENABLE));
+    DRAW_STATE_I(DS_STENCILMASK, glStencilMask, GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_1),
                            NV_PGRAPH_CONTROL_1_STENCIL_MASK_WRITE));
 
     if (pgraph_reg_r(pg, NV_PGRAPH_BLEND) & NV_PGRAPH_BLEND_EN) {
-        glEnable(GL_BLEND);
+        draw_capability(r, DS_BLEND, GL_BLEND, true);
         uint32_t sfactor = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_BLEND),
                                     NV_PGRAPH_BLEND_SFACTOR);
         uint32_t dfactor = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_BLEND),
                                     NV_PGRAPH_BLEND_DFACTOR);
         assert(sfactor < ARRAY_SIZE(pgraph_blend_factor_gl_map));
         assert(dfactor < ARRAY_SIZE(pgraph_blend_factor_gl_map));
-        glBlendFunc(pgraph_blend_factor_gl_map[sfactor],
+        DRAW_STATE_I(DS_BLENDFUNC, glBlendFunc, pgraph_blend_factor_gl_map[sfactor],
                     pgraph_blend_factor_gl_map[dfactor]);
 
         uint32_t equation = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_BLEND),
                                      NV_PGRAPH_BLEND_EQN);
         assert(equation < ARRAY_SIZE(pgraph_blend_equation_gl_map));
-        glBlendEquation(pgraph_blend_equation_gl_map[equation]);
+        DRAW_STATE_I(DS_BLENDEQUATION, glBlendEquation, pgraph_blend_equation_gl_map[equation]);
 
         uint32_t blend_color = pgraph_reg_r(pg, NV_PGRAPH_BLENDCOLOR);
         float gl_blend_color[4];
         pgraph_argb_pack32_to_rgba_float(blend_color, gl_blend_color);
-        glBlendColor(gl_blend_color[0], gl_blend_color[1], gl_blend_color[2],
+        DRAW_STATE_F(DS_BLENDCOLOR, glBlendColor, gl_blend_color[0], gl_blend_color[1], gl_blend_color[2],
                      gl_blend_color[3]);
     } else {
-        glDisable(GL_BLEND);
+        draw_capability(r, DS_BLEND, GL_BLEND, false);
     }
 
     /* Face culling */
@@ -209,42 +256,42 @@ void pgraph_gl_draw_begin(NV2AState *d)
         uint32_t cull_face = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER),
                                       NV_PGRAPH_SETUPRASTER_CULLCTRL);
         assert(cull_face < ARRAY_SIZE(pgraph_cull_face_gl_map));
-        glCullFace(pgraph_cull_face_gl_map[cull_face]);
-        glEnable(GL_CULL_FACE);
+        DRAW_STATE_I(DS_CULLFACE, glCullFace, pgraph_cull_face_gl_map[cull_face]);
+        draw_capability(r, DS_CULL_FACE, GL_CULL_FACE, true);
     } else {
-        glDisable(GL_CULL_FACE);
+        draw_capability(r, DS_CULL_FACE, GL_CULL_FACE, false);
     }
 
     /* Front-face select */
     /* Winding is reverse here because clip-space y-coordinates are inverted */
-    glFrontFace(pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER)
+    DRAW_STATE_I(DS_FRONTFACE, glFrontFace, pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER)
                     & NV_PGRAPH_SETUPRASTER_FRONTFACE
                         ? GL_CW : GL_CCW);
 
     /* Polygon offset is handled in geometry and fragment shaders explicitly */
-    glDisable(GL_POLYGON_OFFSET_FILL);
-    glDisable(GL_POLYGON_OFFSET_LINE);
-    glDisable(GL_POLYGON_OFFSET_POINT);
+    draw_capability(r, DS_POLYGON_OFFSET_FILL, GL_POLYGON_OFFSET_FILL, false);
+    draw_capability(r, DS_POLYGON_OFFSET_LINE, GL_POLYGON_OFFSET_LINE, false);
+    draw_capability(r, DS_POLYGON_OFFSET_POINT, GL_POLYGON_OFFSET_POINT, false);
 
     /* Depth testing */
     if (depth_test) {
-        glEnable(GL_DEPTH_TEST);
+        draw_capability(r, DS_DEPTH_TEST, GL_DEPTH_TEST, true);
 
         uint32_t depth_func = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0),
                                        NV_PGRAPH_CONTROL_0_ZFUNC);
         assert(depth_func < ARRAY_SIZE(pgraph_depth_func_gl_map));
-        glDepthFunc(pgraph_depth_func_gl_map[depth_func]);
+        DRAW_STATE_I(DS_DEPTHFUNC, glDepthFunc, pgraph_depth_func_gl_map[depth_func]);
     } else {
-        glDisable(GL_DEPTH_TEST);
+        draw_capability(r, DS_DEPTH_TEST, GL_DEPTH_TEST, false);
     }
 
-    glEnable(GL_DEPTH_CLAMP);
+    draw_capability(r, DS_DEPTH_CLAMP, GL_DEPTH_CLAMP, true);
 
     /* Set first vertex convention to match Vulkan default */
-    glProvokingVertex(GL_FIRST_VERTEX_CONVENTION);
+    DRAW_STATE_I(DS_PROVOKINGVERTEX, glProvokingVertex, GL_FIRST_VERTEX_CONVENTION);
 
     if (stencil_test) {
-        glEnable(GL_STENCIL_TEST);
+        draw_capability(r, DS_STENCIL_TEST, GL_STENCIL_TEST, true);
 
         uint32_t stencil_func = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_1),
                                     NV_PGRAPH_CONTROL_1_STENCIL_FUNC);
@@ -264,53 +311,53 @@ void pgraph_gl_draw_begin(NV2AState *d)
         assert(op_zfail < ARRAY_SIZE(pgraph_stencil_op_gl_map));
         assert(op_zpass < ARRAY_SIZE(pgraph_stencil_op_gl_map));
 
-        glStencilFunc(
+        DRAW_STATE_I(DS_STENCILFUNC, glStencilFunc,
             pgraph_stencil_func_gl_map[stencil_func],
             stencil_ref,
             func_mask);
 
-        glStencilOp(
+        DRAW_STATE_I(DS_STENCILOP, glStencilOp,
             pgraph_stencil_op_gl_map[op_fail],
             pgraph_stencil_op_gl_map[op_zfail],
             pgraph_stencil_op_gl_map[op_zpass]);
 
     } else {
-        glDisable(GL_STENCIL_TEST);
+        draw_capability(r, DS_STENCIL_TEST, GL_STENCIL_TEST, false);
     }
 
     /* Dither */
     /* FIXME: GL implementation dependent */
     if (pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0) &
             NV_PGRAPH_CONTROL_0_DITHERENABLE) {
-        glEnable(GL_DITHER);
+        draw_capability(r, DS_DITHER, GL_DITHER, true);
     } else {
-        glDisable(GL_DITHER);
+        draw_capability(r, DS_DITHER, GL_DITHER, false);
     }
 
-    glEnable(GL_PROGRAM_POINT_SIZE);
+    draw_capability(r, DS_PROGRAM_POINT_SIZE, GL_PROGRAM_POINT_SIZE, true);
 
     bool anti_aliasing = GET_MASK(pgraph_reg_r(pg, NV_PGRAPH_ANTIALIASING), NV_PGRAPH_ANTIALIASING_ENABLE);
 
     /* Edge Antialiasing */
     if (!anti_aliasing && pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER) &
                               NV_PGRAPH_SETUPRASTER_LINESMOOTHENABLE) {
-        glEnable(GL_LINE_SMOOTH);
-        glLineWidth(MIN(r->supported_smooth_line_width_range[1], pg->surface_scale_factor));
+        draw_capability(r, DS_LINE_SMOOTH, GL_LINE_SMOOTH, true);
+        DRAW_STATE_F(DS_LINEWIDTH, glLineWidth, MIN(r->supported_smooth_line_width_range[1], pg->surface_scale_factor));
     } else {
-        glDisable(GL_LINE_SMOOTH);
-        glLineWidth(MIN(r->supported_aliased_line_width_range[1], pg->surface_scale_factor));
+        draw_capability(r, DS_LINE_SMOOTH, GL_LINE_SMOOTH, false);
+        DRAW_STATE_F(DS_LINEWIDTH, glLineWidth, MIN(r->supported_aliased_line_width_range[1], pg->surface_scale_factor));
     }
     if (!anti_aliasing && pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER) &
                               NV_PGRAPH_SETUPRASTER_POLYSMOOTHENABLE) {
-        glEnable(GL_POLYGON_SMOOTH);
+        draw_capability(r, DS_POLYGON_SMOOTH, GL_POLYGON_SMOOTH, true);
     } else {
-        glDisable(GL_POLYGON_SMOOTH);
+        draw_capability(r, DS_POLYGON_SMOOTH, GL_POLYGON_SMOOTH, false);
     }
 
     unsigned int vp_width = pg->surface_binding_dim.width,
                  vp_height = pg->surface_binding_dim.height;
     pgraph_apply_scaling_factor(pg, &vp_width, &vp_height);
-    glViewport(0, 0, vp_width, vp_height);
+    DRAW_STATE_I(DS_VIEWPORT, glViewport, 0, 0, vp_width, vp_height);
 
     /* Surface clip */
     /* FIXME: Consider moving to PSH w/ window clip */
@@ -325,8 +372,8 @@ void pgraph_gl_draw_begin(NV2AState *d)
     pgraph_apply_scaling_factor(pg, &xmin, &ymin);
     pgraph_apply_scaling_factor(pg, &scissor_width, &scissor_height);
 
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(xmin, ymin, scissor_width, scissor_height);
+    draw_capability(r, DS_SCISSOR_TEST, GL_SCISSOR_TEST, true);
+    DRAW_STATE_I(DS_SCISSOR, glScissor, xmin, ymin, scissor_width, scissor_height);
 
     /* Visibility testing */
     if (pg->zpass_pixel_count_enable) {
@@ -429,7 +476,7 @@ static void ui_unsquash_full_width(PGRAPHState *pg, PGRAPHGLState *r, unsigned i
         max_x = MAX(max_x, x);
     }
     if (min_x <= 1.0f && max_x >= width - 1.0f) {
-        glUniform1f(loc, 1.0f);
+        pgraph_gl_override_ui_squash(r->shader_binding, 1.0f);
     }
 }
 

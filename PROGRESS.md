@@ -263,3 +263,27 @@ Xbox caller of time spent in system DLLs), --audio-dump FILE, "perf:" log line (
 bin/dspdis.exe (DSP disassembler), XTRACE_ENABLED/XPROBE_VALUE/XTRACE_STREAM in dsp_cpu.c.
 - [x] audio (LLE APU), movies (XMV via PVIDEO overlay) work
 - [x] enhancements: resolution scale, widescreen, fps (see above)
+
+## Performance continuation (2026-11-14)
+
+See [docs/PERFORMANCE_STATUS.md](docs/PERFORMANCE_STATUS.md) for the repository
+audit, current experiments, validation results, local artifacts, and remaining
+work. Keep that checkpoint current when resuming this branch.
+
+- Cache repeated fixed GL state calls, with invalidation around clears and
+  render-to-texture drawing (`XB_NO_FAST_STATE=1` restores original submission).
+- Cache uniform values per program, including the full-width UI override;
+  allocate caches only for programs used in draws (`XB_NO_FAST_UNIFORMS=1`).
+- Reuse snapshot texture storage and copy compatible normalized color images
+  without a fullscreen shader pass (`XB_NO_FAST_COPY=1` restores original path).
+  Debug mode compares initial copies against reference shader output.
+- Fix input scripts silently truncating after 64 presses. `--input-only` isolates
+  automation from physical controllers/keyboard; ordinary input is unchanged.
+- Fix linker failures being accepted as successful builds with an old executable.
+- Add `tools/perf_run.py` and `tools/perf_report.py`: sequential cave tests,
+  explicit elapsed-time windows, preserved logs/screenshots, invalid-run warnings.
+- Initial RTX 2070 scale-3 cave timing samples: original 40.17 fps mean, cached
+  state/uniforms 57.48 fps mean (120–184 seconds). Combat varies across runs;
+  these are provisional observations, not a guaranteed speedup or a firm 60 fps.
+- HD 530 is the user's provisional Intel target. GTX 1060, Deck/Proton, and Intel
+  validation remains necessary. No new performance guarantee on those machines.

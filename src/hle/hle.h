@@ -9,4 +9,4 @@ void hle_main_loop();
 void hle_input_install();
 void hle_xapi_install();
 void hle_fixes_install();
-void hle_input_set_script(const char *spec);
+void hle_input_set_script(const char *spec, bool exclusive = false);
