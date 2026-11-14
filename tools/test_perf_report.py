@@ -6,6 +6,14 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_vulkan_backend_is_distinct_from_gl_presenter(self):
+        result = self.report(
+            "[ 1 100] OpenGL: NVIDIA presenter\n"
+            "[ 1 200] Renderer active: Vulkan\n"
+            "[ 1 1100] perf: 60 fps\n")
+        self.assertEqual(result["backend"], "Vulkan")
+        self.assertEqual(result["renderer"], "NVIDIA presenter")
+
     def report(self, text, start=0, end=1):
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "runtime.log"

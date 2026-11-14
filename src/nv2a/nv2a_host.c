@@ -831,6 +831,18 @@ void nv2a_host_init(uint8_t *ram, uint32_t ram_size)
 }
 
 void nv2a_config_set_surface_scale(int scale) { g_config.display.quality.surface_scale = scale < 1 ? 1 : scale; }
+bool nv2a_config_set_renderer(int renderer)
+{
+#ifndef CONFIG_VULKAN
+    if (renderer == CONFIG_DISPLAY_RENDERER_VULKAN) return false;
+#endif
+    if (renderer != CONFIG_DISPLAY_RENDERER_OPENGL && renderer != CONFIG_DISPLAY_RENDERER_VULKAN) return false;
+    g_config.display.renderer = renderer;
+    g_config.display.require_renderer = true;
+    g_config.display.vulkan.validation_layers = getenv("XB_VK_VALIDATE") != NULL;
+    g_config.display.vulkan.assert_on_validation_msg = true;
+    return true;
+}
 
 void nv2a_set_refresh_rate(int hz) { g_refresh_hz = hz > 0 ? hz : 60; }
 

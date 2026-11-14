@@ -349,7 +349,13 @@ static bool attempt_renderer_init(PGRAPHState *pg)
 static void init_renderer(PGRAPHState *pg)
 {
     if (attempt_renderer_init(pg)) {
+        nv2a_log("Renderer active: %s", pg->renderer->name);
         return;  // Success
+    }
+
+    if (g_config.display.require_renderer) {
+        nv2a_log("Fatal: explicitly requested renderer failed to initialize");
+        exit(1);
     }
 
     CONFIG_DISPLAY_RENDERER default_renderer = get_default_renderer();
@@ -417,6 +423,9 @@ void nv2a_release_framebuffer_surface(void)
     NV2AState *d = g_nv2a;
     PGRAPHState *pg = &d->pgraph;
     qemu_mutex_lock(&pg->renderer_lock);
+    if (pg->renderer->ops.release_framebuffer_surface) {
+        pg->renderer->ops.release_framebuffer_surface(d);
+    }
     pg->framebuffer_in_use = false;
     qemu_cond_broadcast(&pg->framebuffer_released);
     qemu_mutex_unlock(&pg->renderer_lock);

@@ -16,6 +16,7 @@ def summarize(path, start, end):
     fps = []
     phases = {}
     renderer = None
+    backend = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -38,6 +39,8 @@ def summarize(path, start, end):
             previous = tick
         if "OpenGL:" in line:
             renderer = line.split("OpenGL:", 1)[1].strip()
+        if "Renderer active:" in line:
+            backend = line.split("Renderer active:", 1)[1].strip()
         if "HalReturnToFirmware" in line and exit_at is None:
             exit_at = elapsed
         if "surface snapshot check" in line:
@@ -70,7 +73,7 @@ def summarize(path, start, end):
     if not fps or (not draws and not any(fps)):
         warnings.append("No rendered frames in the requested measurement window.")
     return {
-        "log": str(path), "renderer": renderer,
+        "log": str(path), "renderer": renderer, "backend": backend,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

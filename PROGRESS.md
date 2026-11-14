@@ -1,6 +1,11 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Vulkan continuation (2026-11-14): a separately selectable Vulkan backend now
+builds and runs a full scripted match on RTX 2070. Reproduction, measurements,
+remaining feature gaps and next steps are in [docs/VULKAN_PROGRESS.md](docs/VULKAN_PROGRESS.md).
+The 60 fps performance goal remains unmet; retain the OpenGL fallback.
+
 Run Iron Phoenix (Xbox, XDK 5849, internal name "XBlade", title id 0x53410003) as a native
 Windows game with modern rendering (high res / widescreen / high fps).
 

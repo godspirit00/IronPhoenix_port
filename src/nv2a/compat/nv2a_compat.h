@@ -331,7 +331,9 @@ typedef enum CONFIG_DISPLAY_RENDERER {
 struct nv2a_config {
     struct {
         CONFIG_DISPLAY_RENDERER renderer;
+        bool require_renderer;
         struct { int surface_scale; } quality;
+        struct { bool validation_layers, assert_on_validation_msg, debug_shaders; } vulkan;
     } display;
     struct { bool cache_shaders; } perf;
     struct {

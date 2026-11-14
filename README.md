@@ -36,6 +36,12 @@ The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos
 
 ## Command-line options
 
+Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
+with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
+Vulkan build with the extracted game at 3x scale and 60 Hz. See
+[Vulkan integration status](docs/VULKAN_PROGRESS.md) for build instructions,
+measurements, device requirements and remaining feature gaps.
+
 | Option | Description |
 |---|---|
 | `--game DIR` | Game files directory (default: `game` next to the exe) |

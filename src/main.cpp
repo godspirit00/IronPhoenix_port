@@ -6,6 +6,7 @@
 #include "hle/hle.h"
 #include "video/video.h"
 extern "C" void nv2a_config_set_surface_scale(int scale);
+extern "C" bool nv2a_config_set_renderer(int renderer);
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,6 +94,14 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-vk")) g_log_kernel = true;
         else if (!strcmp(argv[i], "-vf")) g_log_files = true;
         else if (!strcmp(argv[i], "--scale") && i + 1 < argc) g_video.surface_scale = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--renderer") && i + 1 < argc) {
+            const char *name = argv[++i];
+            int renderer = !strcmp(name, "vulkan") ? 2 : !strcmp(name, "opengl") ? 1 : -1;
+            if (renderer < 0 || !nv2a_config_set_renderer(renderer)) {
+                fprintf(stderr, "Renderer '%s' is unavailable; use opengl or build with VULKAN=1.\n", name);
+                return 1;
+            }
+        }
         else if (!strcmp(argv[i], "--fullscreen")) g_video.fullscreen = true;
         else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) { // 16:9 (default) or 4:3
             const char *a = argv[++i];

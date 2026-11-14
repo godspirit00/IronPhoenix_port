@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--no-fast-vertex", action="store_true")
     parser.add_argument("--gpu-timing", action="store_true")
     parser.add_argument("--no-cpu-timing", action="store_true")
+    parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
+    parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--gl-debug", action="store_true")
     args = parser.parse_args()
     if not 0 <= args.start < args.seconds or args.scale < 1 or args.hz < 1 or args.shots < 0:
@@ -59,10 +61,13 @@ def main():
         if enabled:
             env[name] = "1"
     command = [str(exe), "--game", str(root / "extracted"), "--save", str(root / "build/save"),
+               "--renderer", args.renderer,
                "--hz", str(args.hz), "--scale", str(args.scale), "--novsync", "--input-only",
                "--input", args.script.read_text(encoding="utf-8").strip()]
     if args.shots:
         command += ["--shot-every", str(args.shots)]
+    if args.dump_after:
+        command += ["--dump-after", str(args.dump_after)]
     began = time.time()
     timed_out = False
     startup = None
@@ -90,6 +95,8 @@ def main():
             (out / "shots").mkdir(exist_ok=True)
             shutil.copy2(shot, out / "shots" / shot.name)
     report = summarize(log, args.start, args.seconds - 1)
+    if (report.get("backend") or "").lower() != args.renderer:
+        report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
     if not timed_out and proc.returncode:
         report["warnings"].append(f"Game exited with code {proc.returncode} before timeout.")
     console_text = (out / "console.log").read_text(encoding="utf-8", errors="replace")
@@ -101,6 +108,7 @@ def main():
                                "fast_copy": not args.no_fast_copy,
                                "fast_vertex": not args.no_fast_vertex, "gpu_timing": args.gpu_timing,
                                "cpu_timing": not args.no_cpu_timing,
+                               "renderer": args.renderer,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash
     report["configuration"]["script_sha256"] = hashlib.sha256(args.script.read_bytes()).hexdigest()
