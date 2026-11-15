@@ -4,6 +4,7 @@
 #include "../cpu/patch.h"
 #include "d3d8_up_layout.h"
 #include "d3d8_index_layout.h"
+#include "d3d8_vertex_state.h"
 #include <windows.h>
 #include <atomic>
 #include <memory>
@@ -18,6 +19,7 @@ struct Packet {
     Kind kind;
     bool indexed;
     uint32_t primitive, vertices;
+    HleVertexPatch vertex_patch;
     std::vector<uint32_t> words;
 };
 using Original = void (__stdcall *)(uint32_t, uint32_t, const void *, uint32_t);
@@ -124,6 +126,8 @@ extern "C" bool g_hle_index_verify_active = false;
 extern "C" bool nv2a_hle_draw_up(void *, uint32_t, const uint32_t *, size_t);
 extern "C" bool nv2a_hle_draw_indexed(void *, uint32_t, const uint32_t *, size_t);
 extern "C" void hle_d3d8_indexed_complete(bool, uint32_t);
+extern "C" bool nv2a_hle_vertex_patch(void *, const HleVertexPatch *);
+extern "C" void hle_d3d8_vertex_patch_complete(bool);
 
 extern "C" uint32_t hle_d3d8_queue_indexed(uint32_t primitive, uint32_t count,
                                            const void *indices, bool checking, uint32_t *end) {
@@ -134,6 +138,13 @@ extern "C" uint32_t hle_d3d8_queue_indexed(uint32_t primitive, uint32_t count,
     return publish(std::move(packet), checking ? end : nullptr);
 }
 extern "C" void hle_d3d8_emit_marker(void *device, uint32_t token) { emit(device, token); }
+extern "C" void hle_d3d8_attach_vertex_patch(uint32_t token, const HleVertexPatch *patch) {
+    AcquireSRWLockExclusive(&packet_lock);
+    auto it = packets.find(token);
+    if (it == packets.end()) fatal("HLE resources: missing reserved draw packet");
+    it->second->vertex_patch = *patch;
+    ReleaseSRWLockExclusive(&packet_lock);
+}
 
 extern "C" bool hle_d3d8_consume_up(void *device, uint32_t token) {
     if ((token & 0xff000000) != marker_tag) return false;
@@ -143,6 +154,11 @@ extern "C" bool hle_d3d8_consume_up(void *device, uint32_t token) {
     auto packet = std::move(it->second); packets.erase(it);
     queued_bytes -= packet->words.size() * 4;
     ReleaseSRWLockExclusive(&packet_lock);
+    if (packet->vertex_patch.mode) {
+        if (!nv2a_hle_vertex_patch(device, &packet->vertex_patch))
+            fatal("HLE resources: vertex input state MISMATCH");
+        hle_d3d8_vertex_patch_complete(packet->vertex_patch.mode == 2);
+    }
     if (packet->kind == Draw) {
         auto draw = packet->indexed ? nv2a_hle_draw_indexed : nv2a_hle_draw_up;
         if (!draw(device, packet->primitive, packet->words.data(), packet->words.size()))

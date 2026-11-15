@@ -28,6 +28,7 @@
 #include "util.h"
 #include "swizzle.h"
 #include "nv2a_vsh_emulator.h"
+#include "hle/d3d8_vertex_state.h"
 
 /* Bumped on anything that changes what is on screen (flip, CRTC start, video overlay).
  * Port change: the presenter only asks the renderer for a display sync (which drains the GL
@@ -2480,9 +2481,8 @@ DEF_METHOD_INC(NV097, SET_SPECULAR_COLOR4UB)
 
 #undef SET_VERTEX_ATTRIBUTE_4UB
 
-DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_FORMAT)
+static void pgraph_set_vertex_format(PGRAPHState *pg, int slot, uint32_t parameter)
 {
-    int slot = (method - NV097_SET_VERTEX_DATA_ARRAY_FORMAT) / 4;
     VertexAttribute *attr = &pg->vertex_attributes[slot];
     attr->format = GET_MASK(parameter, NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE);
     attr->count = GET_MASK(parameter, NV097_SET_VERTEX_DATA_ARRAY_FORMAT_SIZE);
@@ -2527,12 +2527,37 @@ DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_FORMAT)
     }
 }
 
+DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_FORMAT)
+{
+    pgraph_set_vertex_format(pg, (method - NV097_SET_VERTEX_DATA_ARRAY_FORMAT) / 4, parameter);
+}
+
 DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_OFFSET)
 {
     int slot = (method - NV097_SET_VERTEX_DATA_ARRAY_OFFSET) / 4;
 
     pg->vertex_attributes[slot].dma_select = parameter & 0x80000000;
     pg->vertex_attributes[slot].offset = parameter & 0x7fffffff;
+}
+
+bool nv2a_hle_vertex_patch(void *opaque, const HleVertexPatch *patch)
+{
+    PGRAPHState *pg = &((NV2AState *)opaque)->pgraph;
+    if (pg->primitive_mode != PRIM_TYPE_INVALID || (patch->mode != 1 && patch->mode != 2)) return false;
+    for (unsigned i = 0; i < 16; ++i) {
+        VertexAttribute *attr = &pg->vertex_attributes[i];
+        if (patch->formats_mask & (1u << i)) {
+            if (patch->mode == 2) pgraph_set_vertex_format(pg, i, patch->formats[i]);
+            else if ((attr->format | (attr->count << 4) | (attr->stride << 8)) != patch->formats[i]) return false;
+        }
+        if (patch->offsets_mask & (1u << i)) {
+            if (patch->mode == 2) {
+                attr->dma_select = patch->offsets[i] & 0x80000000u;
+                attr->offset = patch->offsets[i] & 0x7fffffffu;
+            } else if ((attr->offset | (attr->dma_select ? 0x80000000u : 0)) != patch->offsets[i]) return false;
+        }
+    }
+    return true;
 }
 
 DEF_METHOD(NV097, SET_LOGIC_OP_ENABLE)

@@ -6,6 +6,7 @@
 
 extern "C" uint32_t hle_d3d8_queue_indexed(uint32_t, uint32_t, const void *, bool, uint32_t *);
 extern "C" void hle_d3d8_emit_marker(void *, uint32_t);
+extern "C" void hle_d3d8_prepare_vertex(void *, uint32_t, uint32_t);
 
 namespace {
 using Indexed = uint32_t (__stdcall *)(uint32_t, uint32_t, const uint16_t *);
@@ -29,12 +30,12 @@ uint32_t __stdcall indexed(uint32_t primitive, uint32_t count, const uint16_t *i
         !indices || (field(device, 8) & 0x84)) {
         ++fallback; return original_indexed(primitive, count, indices);
     }
-    // Preserve the XDK's deferred state, stream offsets and base-vertex setup.
-    using StateVB = void (__thiscall *)(void *, uint32_t);
-    reinterpret_cast<StateVB>(0x232930)(device, field(device, 0x1c));
+    // Reserve before committing native state: capacity fallback must leave
+    // the original helper's dirty flags and cached base index untouched.
     uint32_t end = 0;
     uint32_t token = hle_d3d8_queue_indexed(primitive, count, indices, packet_mode == Verify, &end);
     if (!token) { ++fallback; return original_indexed(primitive, count, indices); }
+    hle_d3d8_prepare_vertex(device, field(device, 0x1c), token);
     ++submitted;
     if (packet_mode == Verify) {
         hle_d3d8_emit_marker(device, token);

@@ -6,6 +6,18 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_resource_modes_require_distinct_checked_and_applied_counts(self):
+        result = self.report(
+            "[ 1 100] HLE resources mode: 1\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE resources audit: register 5 free 6 streams 7 textures 8 targets 9 locks 10\n"
+            "[ 1 2100] HLE vertex state: prepares 100 native 60 delegated 40 snapshots 80 checked 30 applied 50\n"
+            "[ 1 2100] HLE resource identities: live 5 created 20 retired 2 evicted 0\n")
+        self.assertEqual(result["hle_resources_mode"], "1")
+        self.assertEqual(result["hle_vertex_state"]["applied"], 50)
+        self.assertEqual(result["hle_vertex_state"]["checked"], 30)
+        self.assertEqual(result["hle_resources_audit"]["locks"], 10)
+        self.assertEqual(result["hle_resource_identities"]["evicted"], 0)
     def test_indexed_audit_distinguishes_api_calls_from_buffer_execution(self):
         result = self.report(
             "[ 1 100] HLE indexed mode: observe\n"

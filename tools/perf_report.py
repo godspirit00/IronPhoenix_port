@@ -22,6 +22,10 @@ def summarize(path, start, end):
     hle_indexed_mode = None
     hle_indexed_audit = None
     hle_indexed_packets = None
+    hle_resources_mode = None
+    hle_resources_audit = None
+    hle_vertex_state = None
+    hle_resource_identities = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -50,6 +54,17 @@ def summarize(path, start, end):
             hle_up_mode = line.split("HLE UP bridge:", 1)[1].split("(", 1)[0].strip()
         if "HLE indexed mode:" in line:
             hle_indexed_mode = line.split("HLE indexed mode:", 1)[1].strip()
+        if "HLE resources mode:" in line:
+            hle_resources_mode = line.split("HLE resources mode:", 1)[1].strip()
+        resource = re.search(r"HLE resources audit: register (\d+) free (\d+) streams (\d+) textures (\d+) targets (\d+) locks (\d+)", line)
+        if resource:
+            hle_resources_audit = dict(zip(("register", "free", "streams", "textures", "targets", "locks"), map(int, resource.groups())))
+        vertex = re.search(r"HLE vertex state: prepares (\d+) native (\d+) delegated (\d+) snapshots (\d+) checked (\d+) applied (\d+)", line)
+        if vertex:
+            hle_vertex_state = dict(zip(("prepares", "native", "delegated", "snapshots", "checked", "applied"), map(int, vertex.groups())))
+        identities = re.search(r"HLE resource identities: live (\d+) created (\d+) retired (\d+) evicted (\d+)", line)
+        if identities:
+            hle_resource_identities = dict(zip(("live", "created", "retired", "evicted"), map(int, identities.groups())))
         audit = re.search(r"HLE indexed audit: indexed_calls (\d+) indices (\d+) run_calls (\d+)", line)
         if audit:
             hle_indexed_audit = dict(zip(("indexed_calls", "indices", "run_calls"), map(int, audit.groups())))
@@ -95,6 +110,8 @@ def summarize(path, start, end):
         "hle_up_mode": hle_up_mode, "hle_up_cumulative": hle_up_stats,
         "hle_indexed_mode": hle_indexed_mode, "hle_indexed_audit": hle_indexed_audit,
         "hle_indexed_packets": hle_indexed_packets,
+        "hle_resources_mode": hle_resources_mode, "hle_resources_audit": hle_resources_audit,
+        "hle_vertex_state": hle_vertex_state, "hle_resource_identities": hle_resource_identities,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

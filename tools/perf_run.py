@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
     parser.add_argument("--hle-up", choices=("off", "verify", "1"), default="off")
     parser.add_argument("--hle-indexed", choices=("off", "observe", "verify", "1"), default="off")
+    parser.add_argument("--hle-resources", choices=("off", "observe", "verify", "1"), default="off")
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
@@ -53,6 +54,8 @@ def main():
             parser.error("--profile must be START,SECONDS using integers")
         if not 0 <= profile_start <= 65535 or not 1 <= profile_seconds <= 65535 or profile_start + profile_seconds >= args.seconds:
             parser.error("sampling profile must finish before the run timeout")
+    if args.hle_resources in ("verify", "1") and args.hle_indexed not in ("verify", "1"):
+        parser.error("resource state snapshots require an active indexed bridge")
     if not args.tag or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in args.tag):
         parser.error("tag must contain only letters, digits, '-' or '_'")
     out = root / "scratch/perf" / args.tag
@@ -63,6 +66,9 @@ def main():
     env = os.environ.copy()
     env.pop("XB_HLE_D3D8_UP", None)
     env.pop("XB_HLE_D3D8_INDEXED", None)
+    env.pop("XB_HLE_D3D8_RESOURCES", None)
+    if args.hle_resources != "off":
+        env["XB_HLE_D3D8_RESOURCES"] = args.hle_resources
     if args.hle_indexed != "off":
         env["XB_HLE_D3D8_INDEXED"] = args.hle_indexed
     if args.hle_up != "off":
@@ -126,6 +132,12 @@ def main():
         counter = "consumed" if args.hle_indexed == "1" else "verified"
         if not (report.get("hle_indexed_packets") or {}).get(counter):
             report["warnings"].append("Requested indexed path was not verified as exercised in the log.")
+    if args.hle_resources != "off" and report.get("hle_resources_mode") != args.hle_resources:
+        report["warnings"].append("Requested resource mode was not verified in the log.")
+    if args.hle_resources in ("verify", "1"):
+        counter = "applied" if args.hle_resources == "1" else "checked"
+        if not (report.get("hle_vertex_state") or {}).get(counter):
+            report["warnings"].append("Requested vertex-input state path was not verified as exercised in the log.")
     if args.hle_up != "off":
         expected_mode = "host draw packets" if args.hle_up == "1" else "verify original packing"
         counter = "consumed" if args.hle_up == "1" else "verified"
@@ -145,6 +157,7 @@ def main():
                                "renderer": args.renderer,
                                "hle_up": args.hle_up,
                                "hle_indexed": args.hle_indexed,
+                               "hle_resources": args.hle_resources,
                                "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash

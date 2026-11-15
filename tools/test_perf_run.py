@@ -6,6 +6,8 @@ from pathlib import Path
 
 
 class PerfRunArgumentsTests(unittest.TestCase):
+    def test_resource_state_requires_indexed_submission(self):
+        self.assertIn('require an active indexed bridge', self.reject('--hle-resources', '1'))
     def reject(self, *args):
         result = subprocess.run(
             [sys.executable, str(Path(__file__).with_name('perf_run.py')),

@@ -398,6 +398,8 @@ static DWORD WINAPI vblank_thread(void *arg)
             hle_d3d8_up_stats();
             extern void hle_d3d8_indexed_stats(void);
             hle_d3d8_indexed_stats();
+            extern void hle_d3d8_resources_stats(void);
+            hle_d3d8_resources_stats();
             if (g_ps_enabled) {
                 static const char *names[PS__COUNT] = {"draw_begin", "draw_end", "flush_draw", "clear", "surf_update", "blit",
                                                        "textures", "shaders", "vtx_attrs", "pending", "reports", "sync", "PUSHER", "surf_memcheck", "surf_part", "surf_dl", "surf_ul", "surf_inval",
