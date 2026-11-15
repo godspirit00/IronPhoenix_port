@@ -1,11 +1,13 @@
 #include "hle.h"
 #include "../kernel/kernel.h"
 #include <windows.h>
+void hle_d3d8_up_install();
 
 void hle_install() {
     hle_input_install();
     hle_xapi_install();
     hle_fixes_install();
+    hle_d3d8_up_install();
 }
 
 void hle_main_loop() {

@@ -36,6 +36,7 @@ def main():
     parser.add_argument("--gpu-timing", action="store_true")
     parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
+    parser.add_argument("--hle-up", choices=("off", "verify", "1"), default="off")
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
@@ -59,6 +60,9 @@ def main():
     executable_hash = hashlib.sha256(exe.read_bytes()).hexdigest()
     work = exe.parent
     env = os.environ.copy()
+    env.pop("XB_HLE_D3D8_UP", None)
+    if args.hle_up != "off":
+        env["XB_HLE_D3D8_UP"] = args.hle_up
     if "XB_NULL_DRAW" in env:
         parser.error("unset XB_NULL_DRAW before benchmarking rendered gameplay")
     for name, enabled in (("XB_NO_FAST_STATE", args.no_fast_state),
@@ -124,6 +128,7 @@ def main():
                                "fast_vertex": not args.no_fast_vertex, "gpu_timing": args.gpu_timing,
                                "cpu_timing": not args.no_cpu_timing,
                                "renderer": args.renderer,
+                               "hle_up": args.hle_up,
                                "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash

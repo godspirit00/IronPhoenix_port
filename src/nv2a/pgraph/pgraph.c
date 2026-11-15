@@ -872,6 +872,11 @@ DEF_METHOD(NV097, SET_OBJECT)
 
 DEF_METHOD(NV097, NO_OPERATION)
 {
+    // Private host-packet ordering marker. Ordinary guest NOPs retain their
+    // existing interrupt behavior; only a live owned token can consume one.
+    extern bool hle_d3d8_consume_up(void *, uint32_t);
+    if ((parameter & 0xff000000u) == 0xd8000000u &&
+        hle_d3d8_consume_up(d, parameter)) return;
     /* The bios uses nop as a software method call -
      * it seems to expect a notify interrupt if the parameter isn't 0.
      * According to a nouveau guy it should still be a nop regardless
@@ -2576,6 +2581,29 @@ DEF_METHOD(NV097, SET_BEGIN_END)
     }
 }
 
+// First high-level draw bridge: state was committed ahead of the ordering
+// marker, but vertex payload never travelled through guest pushbuffer memory.
+// Called only by the graphics worker with pgraph.lock and its GL/Vk context.
+bool nv2a_hle_draw_up(void *opaque, uint32_t primitive,
+                      const uint32_t *words, size_t count)
+{
+    NV2AState *d = opaque;
+    PGRAPHState *pg = &d->pgraph;
+    if (pg->primitive_mode != PRIM_TYPE_INVALID || primitive < 1 ||
+        primitive > NV097_SET_BEGIN_END_OP_POLYGON ||
+        !count || count > ARRAY_SIZE(pg->inline_array)) return false;
+    pg->primitive_mode = primitive;
+    pgraph_reset_inline_buffers(pg);
+    pg->renderer->ops.draw_begin(d);
+    memcpy(pg->inline_array, words, count * sizeof(*words));
+    pg->inline_array_length = count;
+    nv2a_profile_inc_counter(NV2A_PROF_BEGIN_ENDS);
+    pg->renderer->ops.draw_end(d);
+    pgraph_reset_inline_buffers(pg);
+    pg->primitive_mode = PRIM_TYPE_INVALID;
+    return true;
+}
+
 DEF_METHOD(NV097, SET_TEXTURE_OFFSET)
 {
     int slot = (method - NV097_SET_TEXTURE_OFFSET) / 64;
@@ -2811,6 +2839,9 @@ DEF_METHOD(NV097, DRAW_ARRAYS)
 
 DEF_METHOD_NON_INC(NV097, INLINE_ARRAY)
 {
+    extern bool g_hle_up_verify_active;
+    extern void hle_d3d8_verify_up_word(uint32_t);
+    if (g_hle_up_verify_active) hle_d3d8_verify_up_word(parameter);
     pgraph_check_within_begin_end_block(pg);
     assert(pg->inline_array_length < NV2A_MAX_BATCH_LENGTH);
     pg->inline_array[pg->inline_array_length++] = parameter;
