@@ -7,6 +7,8 @@
 #include <xinput.h>
 #include <stdlib.h>
 #include <vector>
+#include <atomic>
+#include "desktop_input.h"
 
 #pragma pack(push, 1)
 struct X_XINPUT_GAMEPAD {
@@ -46,7 +48,59 @@ static uint32_t g_packet[4];
 static bool g_reported_insert;
 static const uint32_t kPadHandleBase = 0x7A000000; // fake device handles
 
-bool g_window_focused = true;
+static std::atomic<bool> g_window_focused{false}, g_mouse_client{false};
+static std::atomic<unsigned> g_focus_epoch{0};
+static bool g_context_supported;
+static std::atomic<uint32_t> g_checked_manager{0};
+static SRWLOCK g_desktop_lock = SRWLOCK_INIT, g_mouse_lock = SRWLOCK_INIT;
+static DesktopMouseLook g_mouse;
+static float g_mouse_sensitivity = 1.0f;
+static bool g_mouse_enabled = true;
+
+static DesktopContext input_context() {
+    if (!g_context_supported) return DesktopContext::Startup;
+    uint32_t manager = __atomic_load_n(xptr<uint32_t>(0x36224c), __ATOMIC_RELAXED);
+    if (!manager) return DesktopContext::Startup;
+    if (g_checked_manager.load() != manager) {
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (!VirtualQuery(xptr<void>(manager), &mbi, sizeof mbi) || mbi.State != MEM_COMMIT ||
+            (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) ||
+            uint64_t(manager) + 0x5e8 > uintptr_t(mbi.BaseAddress) + mbi.RegionSize)
+            return DesktopContext::Startup;
+        g_checked_manager.store(manager);
+    }
+    auto field = [manager](unsigned offset) {
+        return (int)__atomic_load_n(xptr<uint32_t>(manager + offset), __ATOMIC_RELAXED);
+    };
+    int app = field(0x5e4), ui = field(0x204), pending = field(0x208), top = field(0x20c);
+    DesktopContext context = desktop_context(true, app, ui, pending, top);
+    static std::atomic<int> previous{-1};
+    if (previous.exchange((int)context) != (int)context)
+        logf("desktop input: %s (app %d ui %d pending %d top %d)",
+            context == DesktopContext::Gameplay ? "gameplay" : context == DesktopContext::Menu ? "menu" : "startup",
+            app, ui, pending, top);
+    return context;
+}
+
+void hle_input_configure_mouse(float sensitivity, bool enabled) {
+    g_mouse_sensitivity = sensitivity;
+    g_mouse_enabled = enabled;
+}
+void hle_input_mouse_capture(bool captured) {
+    AcquireSRWLockExclusive(&g_mouse_lock);
+    g_mouse.reset(GetTickCount(), captured);
+    ReleaseSRWLockExclusive(&g_mouse_lock);
+}
+void hle_input_set_focus(bool focused) {
+    if (g_window_focused.exchange(focused) != focused) ++g_focus_epoch;
+    if (!focused) hle_input_mouse_capture(false);
+}
+void hle_input_set_mouse_client(bool inside) { g_mouse_client.store(inside); }
+void hle_input_mouse_motion(int dx, int dy) {
+    AcquireSRWLockExclusive(&g_mouse_lock);
+    g_mouse.move(dx, dy, GetTickCount());
+    ReleaseSRWLockExclusive(&g_mouse_lock);
+}
 
 static bool key(int vk) { return g_window_focused && (GetAsyncKeyState(vk) & 0x8000); }
 
@@ -58,6 +112,10 @@ struct ScriptedPress {
 static std::vector<ScriptedPress> g_script;
 static DWORD g_script_t0;
 static bool g_script_exclusive;
+
+bool hle_input_wants_mouse_capture() {
+    return g_mouse_enabled && !g_script_exclusive && input_context() == DesktopContext::Gameplay;
+}
 
 void hle_input_set_script(const char *spec, bool exclusive) {
     g_script_exclusive = exclusive;
@@ -136,7 +194,34 @@ static void read_pad(int port, X_XINPUT_GAMEPAD *g) {
         if (key(VK_DOWN)) g->wButtons |= XB_DPAD_DOWN;
         if (key(VK_LEFT)) g->wButtons |= XB_DPAD_LEFT;
         if (key(VK_RIGHT)) g->wButtons |= XB_DPAD_RIGHT;
-        if (key(VK_RETURN)) g->wButtons |= XB_START;
+        AcquireSRWLockExclusive(&g_desktop_lock);
+        static DesktopContextKey enter, escape, left, right, middle, defend, evade;
+        static unsigned focus_epoch;
+        unsigned epoch = g_focus_epoch.load();
+        if (focus_epoch != epoch) {
+            focus_epoch = epoch;
+            enter.disarm(); escape.disarm(); left.disarm(); right.disarm();
+            middle.disarm(); defend.disarm(); evade.disarm();
+        }
+        DesktopContext context = input_context();
+        if (g_window_focused.load()) {
+            if (enter.update(key(VK_RETURN) && !key(VK_MENU), context)) {
+                if (context != DesktopContext::Gameplay) g->bAnalogButtons[AB_A] = 255;
+                if (context != DesktopContext::Menu) g->wButtons |= XB_START;
+            }
+            if (escape.update(key(VK_ESCAPE), context)) {
+                if (context == DesktopContext::Gameplay) g->wButtons |= XB_START;
+                else g->bAnalogButtons[AB_B] = 255;
+            }
+            bool mouse_client = g_mouse_client.load();
+            if (left.update(key(VK_LBUTTON) && mouse_client, context)) g->bAnalogButtons[AB_X] = 255;
+            if (right.update(key(VK_RBUTTON) && mouse_client, context)) g->bAnalogButtons[AB_Y] = 255;
+            if (middle.update(key(VK_MBUTTON) && mouse_client, context)) g->bAnalogButtons[AB_RT] = 255;
+            if (defend.update(key(VK_LCONTROL), context)) g->bAnalogButtons[AB_LT] = 255;
+            if (evade.update(key(VK_LSHIFT), context)) g->bAnalogButtons[AB_B] = 255;
+        }
+        ReleaseSRWLockExclusive(&g_desktop_lock);
+        if (key('P')) g->wButtons |= XB_START;
         if (key(VK_BACK)) g->wButtons |= XB_BACK;
         if (key('W')) g->sThumbLY = 32767;
         if (key('S')) g->sThumbLY = -32768;
@@ -152,8 +237,23 @@ static void read_pad(int port, X_XINPUT_GAMEPAD *g) {
         if (key('R')) g->bAnalogButtons[AB_Y] = 255;
         if (key('Z')) g->bAnalogButtons[AB_WHITE] = 255;
         if (key('C')) g->bAnalogButtons[AB_BLACK] = 255;
-        if (key(VK_LSHIFT)) g->bAnalogButtons[AB_LT] = 255;
         if (key(VK_RSHIFT) || key('F')) g->bAnalogButtons[AB_RT] = 255;
+        if (context == DesktopContext::Gameplay && g_window_focused.load()) {
+            AcquireSRWLockExclusive(&g_mouse_lock);
+            g_mouse.sample(GetTickCount(), g_mouse_sensitivity);
+            if (std::abs((int)g_mouse.x) > std::abs((int)g->sThumbRX)) g->sThumbRX = g_mouse.x;
+            if (std::abs((int)g_mouse.y) > std::abs((int)g->sThumbRY)) g->sThumbRY = g_mouse.y;
+            ReleaseSRWLockExclusive(&g_mouse_lock);
+        }
+        static bool trace = getenv("XB_INPUT_TRACE") != nullptr;
+        static X_XINPUT_GAMEPAD last{};
+        if (trace && memcmp(&last, g, sizeof last)) {
+            logf("desktop pad: context %d buttons %04x A %u B %u X %u Y %u LT %u RT %u RX %d RY %d",
+                (int)context, g->wButtons, g->bAnalogButtons[AB_A], g->bAnalogButtons[AB_B],
+                g->bAnalogButtons[AB_X], g->bAnalogButtons[AB_Y], g->bAnalogButtons[AB_LT],
+                g->bAnalogButtons[AB_RT], g->sThumbRX, g->sThumbRY);
+            last = *g;
+        }
     }
 }
 
@@ -234,6 +334,11 @@ static XSTDCALL uint32_t hle_XInputSetState(uint32_t h, X_XINPUT_FEEDBACK *fb) {
 }
 
 void hle_input_install() {
+    const uint8_t app_getter[] = {0xa1,0x4c,0x22,0x36,0x00,0x8b,0x88,0xe4,0x05,0x00,0x00};
+    const uint8_t ui_getter[] = {0xa1,0x4c,0x22,0x36,0x00,0x8b,0x88,0x04,0x02,0x00,0x00};
+    g_context_supported = !memcmp(xptr<void>(0x99950), app_getter, sizeof app_getter) &&
+                          !memcmp(xptr<void>(0x95a10), ui_getter, sizeof ui_getter);
+    logf("desktop input: menu-state signatures %s; mouse sensitivity %.2f", g_context_supported ? "verified" : "unsupported (capture disabled)", g_mouse_sensitivity);
     HMODULE x = LoadLibraryA("xinput1_4.dll");
     if (!x) x = LoadLibraryA("xinput9_1_0.dll");
     if (x) {

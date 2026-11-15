@@ -1,6 +1,7 @@
 // Game window + presentation of the NV2A front buffer (OpenGL)
 #include "video.h"
 #include "../kernel/kernel.h"
+#include "../hle/hle.h"
 #include <windows.h>
 #include <dwmapi.h>
 #include <glad/gl.h>
@@ -19,7 +20,6 @@ void *glo_create_window_context(void *hdc);
 bool nv2a_renderer_ready(void);
 }
 
-extern bool g_window_focused;
 VideoConfig g_video;
 
 static HWND g_hwnd;
@@ -28,6 +28,63 @@ static HGLRC g_glrc;
 static bool g_fullscreen;
 static WINDOWPLACEMENT g_prev_placement = {sizeof(WINDOWPLACEMENT)};
 static volatile bool g_quit;
+static bool g_mouse_captured, g_raw_mouse, g_mouse_tracking, g_capture_suspended;
+static POINT g_mouse_restore;
+static RECT g_mouse_clip;
+static int g_cursor_hide_calls;
+static bool g_raw_active, g_raw_seen, g_legacy_moved;
+static DWORD g_capture_started;
+
+static void release_mouse(bool restore_position) {
+    if (!g_mouse_captured) return;
+    g_mouse_captured = false;
+    hle_input_mouse_capture(false);
+    ClipCursor(nullptr);
+    while (g_cursor_hide_calls > 0) { ShowCursor(TRUE); --g_cursor_hide_calls; }
+    if (restore_position) SetCursorPos(g_mouse_restore.x, g_mouse_restore.y);
+    logf("mouse capture: released");
+}
+
+static void update_mouse_capture() {
+    bool wanted = !g_capture_suspended && GetForegroundWindow() == g_hwnd &&
+                  !IsIconic(g_hwnd) && hle_input_wants_mouse_capture();
+    RECT clip{};
+    GetClientRect(g_hwnd, &clip);
+    MapWindowPoints(g_hwnd, nullptr, (POINT *)&clip, 2);
+    wanted &= clip.right > clip.left && clip.bottom > clip.top;
+    if (!wanted) { release_mouse(GetForegroundWindow() == g_hwnd); return; }
+    if (!g_mouse_captured) {
+        GetCursorPos(&g_mouse_restore);
+        if (!ClipCursor(&clip)) return;
+        g_mouse_captured = true;
+        g_mouse_clip = clip;
+        g_raw_active = g_raw_mouse;
+        g_raw_seen = g_legacy_moved = false;
+        g_capture_started = GetTickCount();
+        do { ++g_cursor_hide_calls; } while (ShowCursor(FALSE) >= 0);
+        SetCursorPos((clip.left + clip.right) / 2, (clip.top + clip.bottom) / 2);
+        hle_input_set_mouse_client(true);
+        hle_input_mouse_capture(true);
+        logf("mouse capture: acquired (%s)", g_raw_mouse ? "raw input" : "cursor fallback");
+    } else if (memcmp(&clip, &g_mouse_clip, sizeof clip)) {
+        g_mouse_clip = clip;
+        ClipCursor(&clip);
+    }
+    // Some remote/virtual pointer drivers accept registration but provide only
+    // legacy cursor messages. Keep them usable without double-counting devices
+    // that actually provide relative raw packets.
+    if (g_raw_active && !g_raw_seen && g_legacy_moved && GetTickCount() - g_capture_started >= 75) {
+        g_raw_active = false;
+        logf("mouse input: no relative raw packets; using cursor fallback");
+    }
+    if (!g_raw_active) {
+        POINT point;
+        GetCursorPos(&point);
+        int x = (clip.left + clip.right) / 2, y = (clip.top + clip.bottom) / 2;
+        hle_input_mouse_motion(point.x - x, point.y - y);
+        SetCursorPos(x, y);
+    }
+}
 
 static GLuint g_prog, g_vao, g_vbo;
 static GLint g_loc_scale, g_loc_tex, g_loc_palette;
@@ -53,19 +110,74 @@ static void toggle_fullscreen() {
 static LRESULT CALLBACK wndproc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CLOSE:
+        release_mouse(false);
         g_quit = true;
         return 0;
     case WM_ACTIVATE:
-        g_window_focused = LOWORD(wp) != WA_INACTIVE;
+        hle_input_set_focus(LOWORD(wp) != WA_INACTIVE);
+        if (LOWORD(wp) == WA_INACTIVE) {
+            hle_input_set_mouse_client(false);
+            release_mouse(false);
+        }
         return 0;
+    case WM_INPUT: {
+        RAWINPUT raw{};
+        UINT size = sizeof raw;
+        if (g_mouse_captured && g_raw_active && GetRawInputData((HRAWINPUT)lp, RID_INPUT, &raw, &size,
+                sizeof(RAWINPUTHEADER)) != (UINT)-1 && raw.header.dwType == RIM_TYPEMOUSE) {
+            if (raw.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) {
+                g_raw_active = false;
+                logf("mouse input: absolute device; using cursor fallback");
+            } else if (raw.data.mouse.lLastX || raw.data.mouse.lLastY) {
+                g_raw_seen = true;
+                hle_input_mouse_motion(raw.data.mouse.lLastX, raw.data.mouse.lLastY);
+            }
+        }
+        break; // DefWindowProc performs raw-input cleanup.
+    }
+    case WM_MOUSEMOVE:
+        if (g_mouse_captured) {
+            RECT client;
+            GetClientRect(h, &client);
+            if ((short)LOWORD(lp) != client.right / 2 || (short)HIWORD(lp) != client.bottom / 2)
+                g_legacy_moved = true;
+        }
+        hle_input_set_mouse_client(true);
+        if (!g_mouse_tracking) {
+            TRACKMOUSEEVENT tracking = {sizeof tracking, TME_LEAVE, h, 0};
+            TrackMouseEvent(&tracking);
+            g_mouse_tracking = true;
+        }
+        break;
+    case WM_MOUSELEAVE:
+        g_mouse_tracking = false;
+        hle_input_set_mouse_client(false);
+        break;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+        hle_input_set_mouse_client(true);
+        break;
+    case WM_SETCURSOR:
+        if (g_mouse_captured && LOWORD(lp) == HTCLIENT) { SetCursor(nullptr); return TRUE; }
+        break;
+    case WM_ENTERSIZEMOVE:
+    case WM_ENTERMENULOOP:
+        g_capture_suspended = true;
+        release_mouse(false);
+        break;
+    case WM_EXITSIZEMOVE:
+    case WM_EXITMENULOOP:
+        g_capture_suspended = false;
+        break;
     case WM_SYSKEYDOWN:
-        if (wp == VK_RETURN && (lp & (1 << 29))) { // Alt+Enter
+        if (wp == VK_RETURN && (lp & (1 << 29)) && !(lp & (1 << 30))) { // Alt+Enter
             toggle_fullscreen();
             return 0;
         }
         break;
     case WM_KEYDOWN:
-        if (wp == VK_F11) {
+        if (wp == VK_F11 && !(lp & (1 << 30))) {
             toggle_fullscreen();
             return 0;
         }
@@ -136,6 +248,9 @@ void video_init() {
     g_hwnd = CreateWindowA("IronPhoenixWindow", "Iron Phoenix", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                            r.right - r.left, r.bottom - r.top, nullptr, nullptr, wc.hInstance, nullptr);
     g_hdc = GetDC(g_hwnd);
+    RAWINPUTDEVICE mouse = {0x01, 0x02, 0, g_hwnd};
+    g_raw_mouse = RegisterRawInputDevices(&mouse, 1, sizeof mouse) != FALSE;
+    logf("mouse input: %s", g_raw_mouse ? "raw relative motion" : "cursor fallback");
 
     // Shared offscreen contexts for the GPU emulation (render + display) are created here,
     // then our window context joins the same share group.
@@ -240,9 +355,11 @@ void video_main_loop() {
             TranslateMessage(&msg);
             DispatchMessageA(&msg);
         }
+        update_mouse_capture();
         present_frame();
         if (!g_video.vsync || FAILED(DwmFlush())) Sleep(1);
     }
     logf("window closed - exiting");
+    release_mouse(false);
     ExitProcess(0);
 }

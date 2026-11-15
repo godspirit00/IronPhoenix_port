@@ -94,17 +94,33 @@ benchmark commands and switches for comparing the original rendering paths.
 
 ## Controls
 
-Xbox controllers map to XInput gamepads (Xbox 360/One/Series pads). Keyboard fallback:
+Xbox controllers map to XInput gamepads (Xbox 360/One/Series pads). Mouse and keyboard also provide player 1:
 
 | Xbox | Keyboard |
 |---|---|
 | Left stick | W A S D |
-| Right stick | I J K L |
+| Right stick / camera | Mouse movement or I J K L |
 | D-pad | Arrow keys |
-| A / B / X / Y | Space / E / Q / R |
+| A / Confirm | Space; Enter in menus |
+| B / Evade / Back | Left Shift or E; Esc in menus |
+| X / Attack 1 | Left mouse button or Q |
+| Y / Attack 2 | Right mouse button or R |
 | White / Black | Z / C |
-| L / R trigger | Left Shift / Right Shift or F |
-| Start / Back | Enter / Backspace |
+| L trigger / Defend | Left Ctrl |
+| R trigger | Middle mouse button, Right Shift or F |
+| Start / Pause | Enter or Esc during gameplay; P anywhere |
+| Back | Backspace |
+
+Mouse movement is captured only during gameplay. Menus, pause screens and switching
+to another window release the pointer. Mouse buttons send Xbox actions rather than
+clicking menu items; use arrows and Enter/Esc to navigate menus. Held Enter/Esc
+must be released before they can trigger an action after a menu transition.
+
+Add `--mouse-sensitivity 0.5` to the executable's command line for slower camera
+movement (default `1`, range `0.05` to `10`), or `--no-mouse-capture` to keep the
+pointer free and use a controller/IJKL. The game's camera inversion setting still
+applies. Mouse look emulates the right stick, including its maximum turning speed.
+F11 or Alt+Enter toggles fullscreen.
 
 ## Texture replacement
 

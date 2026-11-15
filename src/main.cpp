@@ -85,6 +85,8 @@ int main(int argc, char **argv) {
     const char *trace_list = nullptr;
     const char *input_script = nullptr;
     bool input_only = false;
+    float mouse_sensitivity = 1.0f;
+    bool mouse_capture = true;
     get_exe_dir(exe_dir, sizeof exe_dir);
     snprintf(g_game_dir, sizeof g_game_dir, "%s\\game", exe_dir);
     snprintf(g_save_dir, sizeof g_save_dir, "%s\\save", exe_dir);
@@ -115,6 +117,15 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace_list = argv[++i];
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_script = argv[++i];
         else if (!strcmp(argv[i], "--input-only")) input_only = true;
+        else if (!strcmp(argv[i], "--no-mouse-capture")) mouse_capture = false;
+        else if (!strcmp(argv[i], "--mouse-sensitivity") && i + 1 < argc) {
+            char *end;
+            mouse_sensitivity = strtof(argv[++i], &end);
+            if (*end || !(mouse_sensitivity >= 0.05f && mouse_sensitivity <= 10.0f)) {
+                fprintf(stderr, "Mouse sensitivity must be a number from 0.05 to 10.\n");
+                return 1;
+            }
+        }
         else if (!strcmp(argv[i], "--audio-dump") && i + 1 < argc) audio_set_dump(argv[++i]);
         else if (!strcmp(argv[i], "--profile") && i + 1 < argc) {
             int a = 0, b = 10;
@@ -138,6 +149,7 @@ int main(int argc, char **argv) {
     // Widescreen UI: the game draws all 2D in 640x480 and the anamorphic 16:9 output stretches it;
     // squash 2D draws back to 4:3 proportions (hle/fixes.cpp turns off the game's own partial fix).
     if (g_video.aspect > 1.5f && !g_video.stretch_ui) nv2a_set_ui_squash((4.0f / 3.0f) / g_video.aspect);
+    hle_input_configure_mouse(mouse_sensitivity, mouse_capture);
     video_init();
     apu_init();
     aci_init();
