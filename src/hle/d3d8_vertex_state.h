@@ -13,6 +13,12 @@ typedef struct HleVertexPatch {
 #ifdef __cplusplus
 struct HleStreamInput { uint32_t data, offset, stride, present; uint64_t identity; };
 struct HleDeclInput { uint32_t stream, offset, format; };
+// Re-enter only the SDK's input remainder after general state has run. General
+// dirty bits and the special skip bit must be absent; format writes use the
+// original entry flag, not any newly dirtied post-general format flag.
+inline uint32_t hle_vertex_remainder_flags(uint32_t entry, uint32_t post_general) {
+    return (post_general & 0x80000020u) | (entry & 0x10u) | 0x40u;
+}
 inline bool hle_build_vertex_patch(uint32_t flags, uint32_t previous_base, uint32_t base,
                                    const HleStreamInput (&streams)[16],
                                    const HleDeclInput (&decl)[16], HleVertexPatch& output) {

@@ -4,6 +4,11 @@
 #include <stdio.h>
 
 int main() {
+    // The fallback must emit required input state without repeating general
+    // preparation, including when it just dirtied a special shader-state bit.
+    uint32_t remainder = hle_vertex_remainder_flags(0x50,0xc0000070);
+    assert(remainder == 0x80000070 && !(remainder & 0x3fffff8f) && !(remainder & 0x40000000));
+    assert(hle_vertex_remainder_flags(0x40,0x50) == 0x40); // newly dirty format is retained later, not emitted now
     HleResourceRegistry registry(8);
     auto vb = hle_resource_key(1, 0x1000);
     uint64_t id = registry.identify(0x200, vb);

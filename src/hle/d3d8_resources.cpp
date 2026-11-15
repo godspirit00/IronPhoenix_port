@@ -102,11 +102,27 @@ extern "C" void hle_d3d8_prepare_vertex(void *device, uint32_t base, uint32_t to
     ++preparations;
     uint32_t flags = *xptr<uint32_t>(0x238cf8), old_base = word(device, 0x20);
     HleVertexPatch patch{};
-    // No replay of general deferred state: this first native case is limited
-    // to clean general state, where only vertex input/base-index work remains.
-    if (mode == Native && !(flags & 0x7fffff8f) && capture(device, flags, old_base, base, patch)) {
+    if (mode == Native && !(flags & 0x40000000u)) {
+        // Match the original StateVB entry sequence, retaining its entry flags
+        // for the input masks while general state may dirty different flags.
         *xptr<uint32_t>(0x238cf8) = flags & ~0x50u;
-        if ((flags & 0x40) || old_base != base) word(device, 0x20) = base;
+        if (flags & 0x3fffff8f) {
+            using GeneralState = void (__thiscall *)(void *);
+            reinterpret_cast<GeneralState>(0x2328b0)(device);
+        }
+        uint32_t post_flags = *xptr<uint32_t>(0x238cf8);
+        uint32_t prepared_base = word(device, 0x20);
+        if ((flags & 0x40) || prepared_base != base) word(device, 0x20) = base;
+        if (!capture(device, flags, prepared_base, base, patch)) {
+            // General state already ran. Force the original input remainder
+            // without rerunning it, then preserve both its new dirty bits and
+            // the post-general flags the original full helper would retain.
+            *xptr<uint32_t>(0x238cf8) = hle_vertex_remainder_flags(flags, post_flags);
+            original(device, base);
+            *xptr<uint32_t>(0x238cf8) |= post_flags;
+            ++delegated;
+            return;
+        }
         patch.mode = 2; ++native_preparations;
     } else {
         original(device, base); ++delegated;
@@ -143,6 +159,15 @@ void hle_d3d8_resources_install() {
     else if (!strcmp(setting, "verify")) mode = Verify;
     else if (!strcmp(setting, "1")) mode = Native;
     else fatal("XB_HLE_D3D8_RESOURCES must be observe, verify or 1");
+    const char *indexed = getenv("XB_HLE_D3D8_INDEXED");
+    if ((mode == Native || mode == Verify) &&
+        (!indexed || (strcmp(indexed, "1") && strcmp(indexed, "verify"))))
+        fatal("HLE resources: vertex-state modes require the indexed bridge");
+    const uint8_t general[] = {0x53,0x8b,0x1d,0xf8,0x8c,0x23,0x00};
+    const uint8_t final_flags[] = {0x81,0xe3,0x70,0x00,0x00,0xc0};
+    if (memcmp(xptr<void>(0x2328b0), general, sizeof general) ||
+        memcmp(xptr<void>(0x23291f), final_flags, sizeof final_flags))
+        fatal("HLE resources: unsupported general-state flag protocol");
     const uint8_t reg[] = {0x8b,0x4c,0x24,0x04,0x8b,0x54,0x24,0x08};
     const uint8_t free[] = {0x56,0x57,0x8b,0x7c,0x24,0x0c};
     const uint8_t stream[] = {0x8b,0x0d,0x98,0x91,0x23,0x00};

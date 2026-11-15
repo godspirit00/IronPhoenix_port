@@ -55,6 +55,32 @@ state separately. Unsupported cases must use the original input remainder withou
 repeating general state side effects or losing newly dirtied flags. Then run a
 fresh direct case, same-build reference, Vulkan gameplay and both build variants.
 
+## Expanded vertex-input path
+
+Native mode now mirrors StateVB's entry flag handling and delegates general
+render/texture/shader preparation to the original CDevice_SetState. It then
+prepares the vertex-input delta itself, using the post-general cached base and
+the original entry format/offset dirty bits. The SDK's post-general dirty bits
+are retained for subsequent draws. The special skip state delegates the entire
+helper. Unsupported declarations use an SDK input-only remainder: no general
+preparation is repeated, and its post-general/newly dirtied flags are preserved.
+The general helper's entry and final flag-mask instructions are signature checked.
+
+`scratch/perf/resources-expanded-gl/` completed a full route with 2,474,685 native
+preparations, 1,998,356 nonempty patches applied, zero delegated preparations and
+no reported runtime failures. Registry: 722 live headers, 126,918 identity revisions,
+116,900 retirements, zero evictions. Periodic FPS min/mean/max: 35 / 50.97 / 60.
+This is not a completed performance fix or a proven speedup over another fight.
+The unsupported-declaration remainder has unit-tested flag construction but was
+not exercised by this valid-declaration run.
+
+The exact expanded binary is preserved as
+`scratch/perf/hle-resource-state-expanded.exe`, SHA256
+`8dae5137a1f092b0505946da334f86323d6302b47c6b4e292b754fce340078b1`.
+Same-build original-state reference is running in
+`scratch/perf/resources-expanded-reference/`; Vulkan gameplay and ordinary-build
+checks remain pending. The resource frontend stays independently opt-in.
+
 The first restricted candidate is preserved at
 `scratch/perf/hle-resource-state-prototype.exe` (SHA256
 `4fe572b7393b0c5c06d3bb2b1967064250d098e909c89c9159ae14b754b5e1ca`).
