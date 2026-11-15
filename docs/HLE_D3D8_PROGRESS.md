@@ -49,7 +49,17 @@ calls, submissions, consumptions, fallbacks and verified packets.
   attributes, skipped attributes, source stride/offset, invalid declaration size,
   bounds and rejection without modifying output.
 - Scripted original-packing conformance run is in progress:
-  `scratch/perf/hle-up-verify/`.
+  first attempt `scratch/perf/hle-up-verify/` exposed non-atomic verification
+  marker reservation under queue pressure. Both markers now reserve together;
+  capacity exhaustion falls back before any marker is emitted.
+- Fixed full 185-second conformance run completed without mismatches:
+  `scratch/perf/hle-up-verify-fixed/`, 363,396 verified submissions, 78,003
+  fallbacks, and 14 submitted verification scopes still pending at termination.
+  Counters are cumulative over the run; conformance FPS includes extra work
+  and is not used as a performance baseline.
+- Private helper entry points are signature-checked. Recording/capture flags
+  conservatively fall back so host tokens are not saved into replayable buffers.
+- `run-hle-up.cmd` launches the opt-in direct bridge on OpenGL in this checkout.
 - Next: inspect coverage and conformance, run the direct-packet path through the
   same route, preserve comparisons and assess whether UP has useful coverage.
 

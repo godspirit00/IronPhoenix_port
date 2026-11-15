@@ -116,6 +116,11 @@ def main():
     report = summarize(log, args.start, args.end)
     if (report.get("backend") or "").lower() != args.renderer:
         report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
+    if args.hle_up != "off":
+        expected_mode = "host draw packets" if args.hle_up == "1" else "verify original packing"
+        counter = "consumed" if args.hle_up == "1" else "verified"
+        if report.get("hle_up_mode") != expected_mode or not (report.get("hle_up_cumulative") or {}).get(counter):
+            report["warnings"].append("Requested HLE UP path was not verified as exercised in the log.")
     if not timed_out and proc.returncode:
         report["warnings"].append(f"Game exited with code {proc.returncode} before timeout.")
     console_text = (out / "console.log").read_text(encoding="utf-8", errors="replace")

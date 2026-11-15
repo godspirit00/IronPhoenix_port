@@ -17,6 +17,8 @@ def summarize(path, start, end):
     phases = {}
     renderer = None
     backend = None
+    hle_up_mode = None
+    hle_up_stats = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -41,6 +43,11 @@ def summarize(path, start, end):
             renderer = line.split("OpenGL:", 1)[1].strip()
         if "Renderer active:" in line:
             backend = line.split("Renderer active:", 1)[1].strip()
+        if "HLE UP bridge:" in line:
+            hle_up_mode = line.split("HLE UP bridge:", 1)[1].split("(", 1)[0].strip()
+        hle = re.search(r"HLE UP: calls (\d+) submitted (\d+) consumed (\d+) fallback (\d+) verified (\d+)", line)
+        if hle:
+            hle_up_stats = dict(zip(("calls", "submitted", "consumed", "fallback", "verified"), map(int, hle.groups())))
         if "HalReturnToFirmware" in line and exit_at is None:
             exit_at = elapsed
         if "surface snapshot check" in line:
@@ -74,6 +81,7 @@ def summarize(path, start, end):
         warnings.append("No rendered frames in the requested measurement window.")
     return {
         "log": str(path), "renderer": renderer, "backend": backend,
+        "hle_up_mode": hle_up_mode, "hle_up_cumulative": hle_up_stats,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

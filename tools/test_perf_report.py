@@ -6,6 +6,16 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_hle_path_and_cumulative_coverage_survive_window_filter(self):
+        result = self.report(
+            "[ 1 100] HLE UP bridge: host draw packets (state/resources remain on existing frontend)\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE UP: calls 100 submitted 90 consumed 80 fallback 10 verified 0\n",
+            start=0.5, end=1)
+        self.assertEqual(result["hle_up_mode"], "host draw packets")
+        self.assertEqual(result["hle_up_cumulative"], {
+            "calls":100, "submitted":90, "consumed":80, "fallback":10, "verified":0})
+
     def test_vulkan_backend_is_distinct_from_gl_presenter(self):
         result = self.report(
             "[ 1 100] OpenGL: NVIDIA presenter\n"

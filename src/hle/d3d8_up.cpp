@@ -32,10 +32,10 @@ size_t verify_offset;
 uint32_t& field(void *device, uint32_t offset) {
     return *reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(device) + offset);
 }
-uint32_t publish(std::unique_ptr<Packet> packet) {
+uint32_t publish(std::unique_ptr<Packet> packet, uint32_t *end_token = nullptr) {
     AcquireSRWLockExclusive(&packet_lock);
     size_t bytes = packet->words.size() * 4;
-    if (packets.size() >= 128 || queued_bytes + bytes > 16 * 1024 * 1024) {
+    if (packets.size() + (end_token ? 2 : 1) > 128 || queued_bytes + bytes > 16 * 1024 * 1024) {
         ReleaseSRWLockExclusive(&packet_lock);
         return 0;
     }
@@ -43,6 +43,13 @@ uint32_t publish(std::unique_ptr<Packet> packet) {
     do { token = marker_tag | (++next_id & 0xffffff); } while (packets.count(token));
     queued_bytes += bytes;
     packets.emplace(token, std::move(packet));
+    if (end_token) {
+        // Reserve both validation markers atomically. If full, the caller
+        // falls back before any scope or ordering marker is published.
+        auto end = std::make_unique<Packet>(); end->kind = VerifyEnd;
+        do { *end_token = marker_tag | (++next_id & 0xffffff); } while (packets.count(*end_token));
+        packets.emplace(*end_token, std::move(end));
+    }
     ReleaseSRWLockExclusive(&packet_lock);
     return token;
 }
@@ -60,6 +67,12 @@ void __stdcall replacement(uint32_t primitive, uint32_t vertices,
         ++fallback; original(primitive, vertices, source, stride); return;
     }
     void *device = *xptr<void *>(device_ptr);
+    // Conservatively leave pushbuffer recording/capture to the original path.
+    // EndPushBuffer clears these flags (generic XDK signature mask ~0x84).
+    // One-shot host tokens must never be stored in a replayable pushbuffer.
+    if (field(device, 8) & 0x84) {
+        ++fallback; original(primitive, vertices, source, stride); return;
+    }
     // Preserve original deferred state/declaration setup and its side effects.
     using SetStateUP = void (__thiscall *)(void *);
     reinterpret_cast<SetStateUP>(0x232ad0)(device);
@@ -79,14 +92,10 @@ void __stdcall replacement(uint32_t primitive, uint32_t vertices,
                      field(device, 0xbc8), runs, packet->words)) {
         ++fallback; original(primitive, vertices, source, stride); return;
     }
-    uint32_t token = publish(std::move(packet));
+    uint32_t end_token = 0;
+    uint32_t token = publish(std::move(packet), verify ? &end_token : nullptr);
     if (!token) { ++fallback; original(primitive, vertices, source, stride); return; }
     if (verify) {
-        // Reserve the end marker before publishing either command. Queue
-        // exhaustion must never leave a validation scope open on the worker.
-        auto end = std::make_unique<Packet>(); end->kind = VerifyEnd;
-        uint32_t end_token = publish(std::move(end));
-        if (!end_token) fatal("HLE UP: verification queue exhausted");
         emit(device, token);
         original(primitive, vertices, source, stride);
         emit(device, end_token);
@@ -146,10 +155,17 @@ void hle_d3d8_up_install() {
     const char *mode = getenv("XB_HLE_D3D8_UP");
     if (!mode || !*mode || !strcmp(mode, "0")) return;
     if (strcmp(mode, "1") && strcmp(mode, "verify")) fatal("XB_HLE_D3D8_UP must be 1 or verify");
-    // Exactly six whole instructions bytes, no PC-relative instruction stolen.
+    // Six bytes spanning three complete instructions, none PC-relative.
     const uint8_t expected[] = {0x55, 0x8b, 0xec, 0x83, 0xec, 0x14};
     if (memcmp(xptr<void>(draw_up), expected, sizeof expected))
         fatal("HLE UP: unsupported DrawVerticesUP prologue");
+    const uint8_t state_up[] = {0xa1,0xf8,0x8c,0x23,0x00,0x83,0xec,0x14};
+    const uint8_t reserve[] = {0x8b,0x0d,0x98,0x91,0x23,0x00};
+    const uint8_t kick[] = {0x56,0x8b,0x35,0x98,0x91,0x23,0x00};
+    if (memcmp(xptr<void>(0x232ad0), state_up, sizeof state_up) ||
+        memcmp(xptr<void>(0x22d1e0), reserve, sizeof reserve) ||
+        memcmp(xptr<void>(0x22ce60), kick, sizeof kick))
+        fatal("HLE UP: unsupported XDK helper entry points");
     uint8_t *trampoline = static_cast<uint8_t *>(VirtualAlloc(nullptr, 16,
         MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
     if (!trampoline) fatal("HLE UP: cannot allocate original trampoline");
