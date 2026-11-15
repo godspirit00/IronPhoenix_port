@@ -6,6 +6,14 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_indexed_audit_distinguishes_api_calls_from_buffer_execution(self):
+        result = self.report(
+            "[ 1 100] HLE indexed mode: observe\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE indexed audit: indexed_calls 12 indices 50000 run_calls 90\n")
+        self.assertEqual(result["hle_indexed_mode"], "observe")
+        self.assertEqual(result["hle_indexed_audit"], {"indexed_calls":12,"indices":50000,"run_calls":90})
+
     def test_hle_path_and_cumulative_coverage_survive_window_filter(self):
         result = self.report(
             "[ 1 100] HLE UP bridge: host draw packets (state/resources remain on existing frontend)\n"

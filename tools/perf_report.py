@@ -19,6 +19,8 @@ def summarize(path, start, end):
     backend = None
     hle_up_mode = None
     hle_up_stats = None
+    hle_indexed_mode = None
+    hle_indexed_audit = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -45,6 +47,11 @@ def summarize(path, start, end):
             backend = line.split("Renderer active:", 1)[1].strip()
         if "HLE UP bridge:" in line:
             hle_up_mode = line.split("HLE UP bridge:", 1)[1].split("(", 1)[0].strip()
+        if "HLE indexed mode:" in line:
+            hle_indexed_mode = line.split("HLE indexed mode:", 1)[1].strip()
+        audit = re.search(r"HLE indexed audit: indexed_calls (\d+) indices (\d+) run_calls (\d+)", line)
+        if audit:
+            hle_indexed_audit = dict(zip(("indexed_calls", "indices", "run_calls"), map(int, audit.groups())))
         hle = re.search(r"HLE UP: calls (\d+) submitted (\d+) consumed (\d+) fallback (\d+) verified (\d+)", line)
         if hle:
             hle_up_stats = dict(zip(("calls", "submitted", "consumed", "fallback", "verified"), map(int, hle.groups())))
@@ -82,6 +89,7 @@ def summarize(path, start, end):
     return {
         "log": str(path), "renderer": renderer, "backend": backend,
         "hle_up_mode": hle_up_mode, "hle_up_cumulative": hle_up_stats,
+        "hle_indexed_mode": hle_indexed_mode, "hle_indexed_audit": hle_indexed_audit,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
     parser.add_argument("--hle-up", choices=("off", "verify", "1"), default="off")
+    parser.add_argument("--hle-indexed", choices=("off", "observe"), default="off")
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
@@ -61,6 +62,9 @@ def main():
     work = exe.parent
     env = os.environ.copy()
     env.pop("XB_HLE_D3D8_UP", None)
+    env.pop("XB_HLE_D3D8_INDEXED", None)
+    if args.hle_indexed != "off":
+        env["XB_HLE_D3D8_INDEXED"] = args.hle_indexed
     if args.hle_up != "off":
         env["XB_HLE_D3D8_UP"] = args.hle_up
     if "XB_NULL_DRAW" in env:
@@ -116,6 +120,8 @@ def main():
     report = summarize(log, args.start, args.end)
     if (report.get("backend") or "").lower() != args.renderer:
         report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
+    if args.hle_indexed != "off" and report.get("hle_indexed_mode") != args.hle_indexed:
+        report["warnings"].append("Requested indexed mode was not verified in the log.")
     if args.hle_up != "off":
         expected_mode = "host draw packets" if args.hle_up == "1" else "verify original packing"
         counter = "consumed" if args.hle_up == "1" else "verified"
@@ -134,6 +140,7 @@ def main():
                                "cpu_timing": not args.no_cpu_timing,
                                "renderer": args.renderer,
                                "hle_up": args.hle_up,
+                               "hle_indexed": args.hle_indexed,
                                "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash
