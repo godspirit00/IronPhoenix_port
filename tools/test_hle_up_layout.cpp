@@ -1,4 +1,5 @@
 #include "../src/hle/d3d8_up_layout.h"
+#include "../src/hle/d3d8_index_layout.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -25,5 +26,20 @@ int main() {
     assert(!hle_up_pack(data, 2, 16, 0, 4, {}, out));
     assert(!hle_up_pack(nullptr, 2, 16, 0, 4, {{4,0}}, out));
     assert(out == before); // invalid layouts never partially publish output
-    puts("HLE UP packing tests passed");
+    // Odd index counts, unaligned caller data and unsigned high values.
+    uint8_t raw[] = {0xaa,0,0,0xff,0xff,0,0x80,1,0};
+    assert(hle_index_pack(raw + 1, 3, out));
+    assert((out == std::vector<uint32_t>{0,65535,32768}));
+    raw[1] = 99;
+    assert(out[0] == 0); // snapshot remains owned after caller overwrites source
+    before = out;
+    assert(!hle_index_pack(raw, 0, out));
+    assert(!hle_index_pack(raw, 65537, out));
+    assert(!hle_index_pack(nullptr, 1, out));
+    assert(out == before);
+    std::vector<uint16_t> indices(1025);
+    for (size_t i = 0; i < indices.size(); ++i) indices[i] = uint16_t(i * 13);
+    assert(hle_index_pack(indices.data(), indices.size(), out));
+    for (size_t i = 0; i < indices.size(); ++i) assert(out[i] == indices[i]);
+    puts("HLE UP and indexed packing tests passed");
 }

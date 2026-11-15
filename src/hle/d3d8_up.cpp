@@ -3,6 +3,7 @@
 #include "hle.h"
 #include "../cpu/patch.h"
 #include "d3d8_up_layout.h"
+#include "d3d8_index_layout.h"
 #include <windows.h>
 #include <atomic>
 #include <memory>
@@ -15,6 +16,7 @@ constexpr uint32_t marker_tag = 0xd8000000;
 enum Kind { Draw, VerifyBegin, VerifyEnd };
 struct Packet {
     Kind kind;
+    bool indexed;
     uint32_t primitive, vertices;
     std::vector<uint32_t> words;
 };
@@ -35,7 +37,9 @@ uint32_t& field(void *device, uint32_t offset) {
 uint32_t publish(std::unique_ptr<Packet> packet, uint32_t *end_token = nullptr) {
     AcquireSRWLockExclusive(&packet_lock);
     size_t bytes = packet->words.size() * 4;
-    if (packets.size() + (end_token ? 2 : 1) > 128 || queued_bytes + bytes > 16 * 1024 * 1024) {
+    // Indexed combat submits hundreds of draws per frame. Keep a bounded few
+    // frames of descriptors without forcing ordinary draws onto fallback.
+    if (packets.size() + (end_token ? 2 : 1) > 2048 || queued_bytes + bytes > 16 * 1024 * 1024) {
         ReleaseSRWLockExclusive(&packet_lock);
         return 0;
     }
@@ -116,10 +120,23 @@ void __stdcall replacement(uint32_t primitive, uint32_t vertices,
 }
 
 extern "C" bool g_hle_up_verify_active = false;
+extern "C" bool g_hle_index_verify_active = false;
 extern "C" bool nv2a_hle_draw_up(void *, uint32_t, const uint32_t *, size_t);
+extern "C" bool nv2a_hle_draw_indexed(void *, uint32_t, const uint32_t *, size_t);
+extern "C" void hle_d3d8_indexed_complete(bool, uint32_t);
+
+extern "C" uint32_t hle_d3d8_queue_indexed(uint32_t primitive, uint32_t count,
+                                           const void *indices, bool checking, uint32_t *end) {
+    auto packet = std::make_unique<Packet>();
+    packet->kind = checking ? VerifyBegin : Draw;
+    packet->indexed = true; packet->primitive = primitive; packet->vertices = count;
+    if (!hle_index_pack(indices, count, packet->words)) return 0;
+    return publish(std::move(packet), checking ? end : nullptr);
+}
+extern "C" void hle_d3d8_emit_marker(void *device, uint32_t token) { emit(device, token); }
 
 extern "C" bool hle_d3d8_consume_up(void *device, uint32_t token) {
-    if ((token & 0xff000000) != marker_tag || !enabled) return false;
+    if ((token & 0xff000000) != marker_tag) return false;
     AcquireSRWLockExclusive(&packet_lock);
     auto it = packets.find(token);
     if (it == packets.end()) { ReleaseSRWLockExclusive(&packet_lock); return false; }
@@ -127,25 +144,43 @@ extern "C" bool hle_d3d8_consume_up(void *device, uint32_t token) {
     queued_bytes -= packet->words.size() * 4;
     ReleaseSRWLockExclusive(&packet_lock);
     if (packet->kind == Draw) {
-        if (!nv2a_hle_draw_up(device, packet->primitive, packet->words.data(), packet->words.size()))
+        auto draw = packet->indexed ? nv2a_hle_draw_indexed : nv2a_hle_draw_up;
+        if (!draw(device, packet->primitive, packet->words.data(), packet->words.size()))
             fatal("HLE UP: invalid graphics-worker draw state");
-        ++consumed;
+        if (packet->indexed) hle_d3d8_indexed_complete(false, packet->words.size()); else ++consumed;
     } else if (packet->kind == VerifyBegin) {
         if (verifying) fatal("HLE UP: nested verification");
-        verifying = std::move(packet); verify_offset = 0; g_hle_up_verify_active = true;
+        verifying = std::move(packet); verify_offset = 0;
+        g_hle_up_verify_active = !verifying->indexed;
+        g_hle_index_verify_active = verifying->indexed;
     } else {
         if (!verifying || verify_offset != verifying->words.size())
             fatal("HLE UP: verification length MISMATCH");
-        uint32_t n = ++checked;
-        if (n <= 32) logf("HLE UP verification %u: %u vertices, %zu DWORDs MATCH", n,
-                          verifying->vertices, verifying->words.size());
-        verifying.reset(); g_hle_up_verify_active = false;
+        if (verifying->indexed) hle_d3d8_indexed_complete(true, verifying->words.size());
+        else {
+            uint32_t n = ++checked;
+            if (n <= 32) logf("HLE UP verification %u: %u vertices, %zu DWORDs MATCH", n,
+                              verifying->vertices, verifying->words.size());
+        }
+        verifying.reset(); g_hle_up_verify_active = false; g_hle_index_verify_active = false;
     }
     return true;
 }
 extern "C" void hle_d3d8_verify_up_word(uint32_t word) {
     if (!verifying || verify_offset >= verifying->words.size() ||
         verifying->words[verify_offset++] != word) fatal("HLE UP: vertex data MISMATCH");
+}
+extern "C" void hle_d3d8_verify_index(uint32_t index) {
+    if (!verifying || !verifying->indexed || verify_offset >= verifying->words.size() ||
+        verifying->words[verify_offset++] != index) fatal("HLE indexed: index data MISMATCH");
+}
+extern "C" void hle_d3d8_verify_index_batch(const uint32_t *words, size_t count, bool packed16) {
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t value;
+        memcpy(&value, words + i, 4);
+        hle_d3d8_verify_index(packed16 ? value & 0xffff : value);
+        if (packed16) hle_d3d8_verify_index(value >> 16);
+    }
 }
 extern "C" void hle_d3d8_up_stats(void) {
     if (enabled) logf("HLE UP: calls %u submitted %u consumed %u fallback %u verified %u",

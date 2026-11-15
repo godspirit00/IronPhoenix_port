@@ -23,7 +23,9 @@ There is no claim of removing GPU emulation or achieving firm 60 fps yet.
 This step tests a real D3D API interception boundary before building a complete
 state/resource frontend. Do not call it a finished menu renderer.
 
-Pending packets are bounded to 128 and 16 MiB, with individual payloads limited
+Pending packets were initially bounded to 128; the indexed continuation expands
+the shared descriptor limit to 2,048 (hundreds of indexed draws occur per frame).
+The shared payload budget stays at 16 MiB, with individual payloads limited
 to 65,536 DWORDs. The stream contains opaque live tokens, not host pointers.
 Ordinary guest NOP/interrupt semantics remain in place. Renderer/context access
 stays on the existing graphics worker; no per-draw synchronous CPU barrier is

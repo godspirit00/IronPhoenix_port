@@ -629,6 +629,21 @@ static void pgraph_method_inc(MethodFunc handler, uint32_t end,
 
 static void pgraph_method_non_inc(MethodFunc handler, METHOD_HANDLER_ARG_DECL)
 {
+    // Check conformance once per command packet, not in the hot per-index
+    // handlers. With verification off the legacy decode loop stays unchanged.
+    extern bool g_hle_index_verify_active;
+    extern void hle_d3d8_verify_index(uint32_t);
+    extern void hle_d3d8_verify_index_batch(const uint32_t *, size_t, bool);
+    if (g_hle_index_verify_active &&
+        (method == NV097_ARRAY_ELEMENT16 || method == NV097_ARRAY_ELEMENT32)) {
+        bool packed16 = method == NV097_ARRAY_ELEMENT16;
+        if (inc) {
+            hle_d3d8_verify_index(packed16 ? parameter & 0xffff : parameter);
+            if (packed16) hle_d3d8_verify_index(parameter >> 16);
+        } else {
+            hle_d3d8_verify_index_batch(parameters, num_words_available, packed16);
+        }
+    }
     if (inc) {
         handler(METHOD_HANDLER_ARGS);
         return;
@@ -2584,8 +2599,8 @@ DEF_METHOD(NV097, SET_BEGIN_END)
 // First high-level draw bridge: state was committed ahead of the ordering
 // marker, but vertex payload never travelled through guest pushbuffer memory.
 // Called only by the graphics worker with pgraph.lock and its GL/Vk context.
-bool nv2a_hle_draw_up(void *opaque, uint32_t primitive,
-                      const uint32_t *words, size_t count)
+static bool pgraph_hle_draw(void *opaque, uint32_t primitive,
+                            const uint32_t *words, size_t count, bool indexed)
 {
     NV2AState *d = opaque;
     PGRAPHState *pg = &d->pgraph;
@@ -2595,13 +2610,28 @@ bool nv2a_hle_draw_up(void *opaque, uint32_t primitive,
     pg->primitive_mode = primitive;
     pgraph_reset_inline_buffers(pg);
     pg->renderer->ops.draw_begin(d);
-    memcpy(pg->inline_array, words, count * sizeof(*words));
-    pg->inline_array_length = count;
+    if (indexed) {
+        memcpy(pg->inline_elements, words, count * sizeof(*words));
+        pg->inline_elements_length = count;
+    } else {
+        memcpy(pg->inline_array, words, count * sizeof(*words));
+        pg->inline_array_length = count;
+    }
     nv2a_profile_inc_counter(NV2A_PROF_BEGIN_ENDS);
     pg->renderer->ops.draw_end(d);
     pgraph_reset_inline_buffers(pg);
     pg->primitive_mode = PRIM_TYPE_INVALID;
     return true;
+}
+
+bool nv2a_hle_draw_up(void *opaque, uint32_t primitive, const uint32_t *words, size_t count)
+{
+    return pgraph_hle_draw(opaque, primitive, words, count, false);
+}
+
+bool nv2a_hle_draw_indexed(void *opaque, uint32_t primitive, const uint32_t *indices, size_t count)
+{
+    return pgraph_hle_draw(opaque, primitive, indices, count, true);
 }
 
 DEF_METHOD(NV097, SET_TEXTURE_OFFSET)

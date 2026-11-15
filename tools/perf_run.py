@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
     parser.add_argument("--hle-up", choices=("off", "verify", "1"), default="off")
-    parser.add_argument("--hle-indexed", choices=("off", "observe"), default="off")
+    parser.add_argument("--hle-indexed", choices=("off", "observe", "verify", "1"), default="off")
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
@@ -122,6 +122,10 @@ def main():
         report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
     if args.hle_indexed != "off" and report.get("hle_indexed_mode") != args.hle_indexed:
         report["warnings"].append("Requested indexed mode was not verified in the log.")
+    if args.hle_indexed in ("1", "verify"):
+        counter = "consumed" if args.hle_indexed == "1" else "verified"
+        if not (report.get("hle_indexed_packets") or {}).get(counter):
+            report["warnings"].append("Requested indexed path was not verified as exercised in the log.")
     if args.hle_up != "off":
         expected_mode = "host draw packets" if args.hle_up == "1" else "verify original packing"
         counter = "consumed" if args.hle_up == "1" else "verified"

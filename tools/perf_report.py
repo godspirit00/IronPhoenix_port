@@ -21,6 +21,7 @@ def summarize(path, start, end):
     hle_up_stats = None
     hle_indexed_mode = None
     hle_indexed_audit = None
+    hle_indexed_packets = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -52,6 +53,9 @@ def summarize(path, start, end):
         audit = re.search(r"HLE indexed audit: indexed_calls (\d+) indices (\d+) run_calls (\d+)", line)
         if audit:
             hle_indexed_audit = dict(zip(("indexed_calls", "indices", "run_calls"), map(int, audit.groups())))
+        indexed = re.search(r"HLE indexed packets: submitted (\d+) consumed (\d+) fallback (\d+) verified (\d+) consumed_indices (\d+) verified_indices (\d+)", line)
+        if indexed:
+            hle_indexed_packets = dict(zip(("submitted", "consumed", "fallback", "verified", "consumed_indices", "verified_indices"), map(int, indexed.groups())))
         hle = re.search(r"HLE UP: calls (\d+) submitted (\d+) consumed (\d+) fallback (\d+) verified (\d+)", line)
         if hle:
             hle_up_stats = dict(zip(("calls", "submitted", "consumed", "fallback", "verified"), map(int, hle.groups())))
@@ -90,6 +94,7 @@ def summarize(path, start, end):
         "log": str(path), "renderer": renderer, "backend": backend,
         "hle_up_mode": hle_up_mode, "hle_up_cumulative": hle_up_stats,
         "hle_indexed_mode": hle_indexed_mode, "hle_indexed_audit": hle_indexed_audit,
+        "hle_indexed_packets": hle_indexed_packets,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

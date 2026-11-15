@@ -14,6 +14,14 @@ class PerfReportTests(unittest.TestCase):
         self.assertEqual(result["hle_indexed_mode"], "observe")
         self.assertEqual(result["hle_indexed_audit"], {"indexed_calls":12,"indices":50000,"run_calls":90})
 
+    def test_indexed_packet_counters_preserve_large_totals(self):
+        result = self.report(
+            "[ 1 100] HLE indexed mode: verify\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE indexed packets: submitted 100 consumed 0 fallback 4 verified 99 consumed_indices 0 verified_indices 4294967296\n")
+        self.assertEqual(result["hle_indexed_packets"]["verified"], 99)
+        self.assertEqual(result["hle_indexed_packets"]["verified_indices"], 4294967296)
+
     def test_hle_path_and_cumulative_coverage_survive_window_filter(self):
         result = self.report(
             "[ 1 100] HLE UP bridge: host draw packets (state/resources remain on existing frontend)\n"
