@@ -14,6 +14,14 @@ class PerfReportTests(unittest.TestCase):
         self.assertEqual(result['scene_events'], [dict(seconds=0.0, asset='se06.scn'),
                                                  dict(seconds=1.0, asset='sw05.scn')])
 
+    def test_delayed_pre_wrap_line_does_not_jump_map_windows(self):
+        result = self.report(
+            '[ 1 999500] Scene asset opened: se06.scn\n'
+            '[ 1 500] Scene asset opened: sw05.scn\n'
+            '[ 2 999999] perf: 60 fps\n'
+            '[ 1 1500] Scene asset opened: se08.scn\n')
+        self.assertEqual(result['scene_events'][-1], dict(seconds=2.0, asset='se08.scn'))
+
     def test_scene_and_cache_budget_telemetry(self):
         result = self.report(
             "[ 1 100] Scene asset opened: se06.scn\n"

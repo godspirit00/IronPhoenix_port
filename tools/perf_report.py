@@ -46,6 +46,10 @@ def summarize(path, start, end):
         delta = tick - previous
         if delta < -500000:
             delta += 1000000
+        elif delta > 500000:
+            # A delayed thread can emit its pre-wrap timestamp after a newer
+            # post-wrap line. Treat that as stale, not another 1000 seconds.
+            delta -= 1000000
         # Threads can emit a timestamp obtained before the preceding log line.
         if delta >= 0:
             elapsed += delta / 1000

@@ -37,6 +37,7 @@ def main():
     parser.add_argument('--output', type=Path)
     parser.add_argument('--metadata', type=Path, required=True)
     parser.add_argument('--log', type=Path)
+    parser.add_argument('--results', type=Path)
     args = parser.parse_args()
     if args.log:
         phases = json.loads(args.metadata.read_text())
@@ -49,7 +50,8 @@ def main():
             if (report.get('fps_samples') or {}).get('min', 0) < 5:
                 report['warnings'].append('FPS below the 5 fps functional regression floor')
             rows.append(dict(**phase, fps=report['fps_samples'], warnings=report['warnings']))
-        args.metadata.with_suffix('.results.json').write_text(json.dumps(rows, indent=2)+'\n')
+        result_file = args.results or args.log.parent / 'map_journey.results.json'
+        result_file.write_text(json.dumps(rows, indent=2)+'\n')
         print(json.dumps(rows, indent=2))
         return int(any(row['warnings'] for row in rows))
     if not args.output:
