@@ -287,7 +287,7 @@ void pgraph_gl_attribute_enable(PGRAPHGLState *r, unsigned int index, bool enabl
 void pgraph_gl_hle_buffers_init(NV2AState *d);
 void pgraph_gl_hle_buffers_finalize(PGRAPHGLState *r);
 void pgraph_gl_hle_buffers_begin(PGRAPHGLState *r);
-bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned max_element,
+bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, unsigned max_element,
                          hwaddr address, GLuint *buffer, hwaddr *offset);
 void pgraph_gl_attribute_value(PGRAPHGLState *r, unsigned int index, const GLfloat *value);
 void pgraph_gl_attribute_pointer(PGRAPHGLState *r, unsigned int index, GLuint buffer,

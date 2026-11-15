@@ -7,7 +7,7 @@
 #define HLE_BUFFER_BUDGET (64u * 1024 * 1024)
 #define HLE_BUFFER_MAX (8u * 1024 * 1024)
 typedef struct HleBufferEntry {
-    uint64_t resource, version, draw, hash;
+    uint64_t resource, draw;
     hwaddr base, size;
     GLuint buffer;
     uint8_t *shadow;
@@ -15,6 +15,7 @@ typedef struct HleBufferEntry {
 struct HleBuffers {
     bool verify;
     uint64_t draw, binds, hits, uploads, bytes, checks, evictions, fallbacks;
+    uint64_t span_updates, span_bytes;
     size_t resident;
     unsigned readbacks;
     int64_t report_us;
@@ -49,7 +50,6 @@ void pgraph_gl_hle_buffers_init(NV2AState *d)
     }
     r->hle_buffers = g_malloc0(sizeof(*r->hle_buffers));
     r->hle_buffers->verify = !strcmp(mode, "verify");
-    nv2a_hle_versions_enable();
     nv2a_log("HLE buffers mode: %s", mode);
 }
 
@@ -69,11 +69,12 @@ void pgraph_gl_hle_buffers_begin(PGRAPHGLState *r)
     int64_t now = qemu_clock_get_us(QEMU_CLOCK_REALTIME);
     if (now - c->report_us < 2000000) return;
     c->report_us = now;
-    nv2a_log("HLE buffers: binds %llu hits %llu uploads %llu bytes %llu checks %llu readbacks %u evictions %llu fallback %llu resident %zu",
+    nv2a_log("HLE buffers: binds %llu hits %llu uploads %llu bytes %llu checks %llu readbacks %u evictions %llu fallback %llu resident %zu span_updates %llu span_bytes %llu",
         (unsigned long long)c->binds, (unsigned long long)c->hits,
         (unsigned long long)c->uploads, (unsigned long long)c->bytes,
         (unsigned long long)c->checks, c->readbacks,
-        (unsigned long long)c->evictions, (unsigned long long)c->fallbacks, c->resident);
+        (unsigned long long)c->evictions, (unsigned long long)c->fallbacks, c->resident,
+        (unsigned long long)c->span_updates, (unsigned long long)c->span_bytes);
 }
 
 static bool surface_overlap(PGRAPHGLState *r, hwaddr base, hwaddr end)
@@ -86,7 +87,7 @@ static bool surface_overlap(PGRAPHGLState *r, hwaddr base, hwaddr end)
     return false;
 }
 
-bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned max_element,
+bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, unsigned max_element,
                          hwaddr address, GLuint *buffer, hwaddr *offset)
 {
     PGRAPHState *pg = &d->pgraph;
@@ -131,15 +132,11 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned max_element,
         e->resource = resource; e->base = base; e->size = size;
     }
     e->draw = c->draw; // Pin all buffers referenced by this VAO/draw.
-    uint64_t version = nv2a_hle_range_version(base, size);
-    if (!e->buffer || e->version != version) {
+    if (!e->buffer) {
         const uint8_t *source = d->vram_ptr + base;
-        if (c->verify) {
-            if (!e->shadow) e->shadow = g_malloc(size);
-            memcpy(e->shadow, source, size);
-            source = e->shadow;
-            e->hash = fast_hash(source, size);
-        }
+        if (!e->shadow) e->shadow = g_malloc(size);
+        memcpy(e->shadow, source, size);
+        source = e->shadow;
         // Orphan storage: earlier submitted draws retain their original bytes.
         if (!e->buffer) {
             glGenBuffers(1, &e->buffer);
@@ -156,26 +153,41 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned max_element,
             }
             g_free(actual);
             ++c->readbacks;
+            ++c->checks;
         }
-        e->version = version;
         ++c->uploads; c->bytes += size;
     } else {
         ++c->hits;
-    }
-    if (c->verify) {
-        ++c->checks;
-        // NOOVERWRITE may change padding or unreferenced vertices in a page.
-        // Only bytes actually fetched by this draw must match the snapshot.
-        if (fast_hash(d->vram_ptr + base, size) != e->hash) {
-            for (unsigned i = 0; i < pg->inline_elements_length; ++i) {
-                hwaddr pos = address - base + (uint64_t)pg->inline_elements[i] * a->stride;
-                assert(pos + element_size <= size);
-                if (memcmp(e->shadow + pos, d->vram_ptr + base + pos, element_size)) {
-                    nv2a_log("HLE buffers MISMATCH: fetched bytes slot %u index %u", slot, pg->inline_elements[i]);
-                    abort();
-                }
-            }
+        // A kick may contain later CPU writes to previously unreferenced bytes
+        // in an already scanned page (NOOVERWRITE). Page versions alone cannot
+        // authorize reuse. Compare only this draw's contiguous fetched span.
+        hwaddr pos = address - base + (uint64_t)min_element * a->stride;
+        hwaddr length = (uint64_t)(max_element - min_element) * a->stride + element_size;
+        assert(pos + length <= size);
+        if (memcmp(e->shadow + pos, d->vram_ptr + base + pos, length)) {
+            memcpy(e->shadow + pos, d->vram_ptr + base + pos, length);
+            glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+            // GL preserves ordered earlier draws when updating live storage.
+            glBufferSubData(GL_ARRAY_BUFFER, pos, length, e->shadow + pos);
+            ++c->uploads; c->bytes += length;
+            ++c->span_updates; c->span_bytes += length;
         }
+    }
+    if (c->verify && (c->binds % 4096 == 0)) {
+        // Compare GPU storage against the immutable upload snapshot, never
+        // against live guest RAM which the CPU can already be writing for a
+        // later draw. Readback sampling deliberately stalls verification only.
+        hwaddr pos = address - base + (uint64_t)min_element * a->stride;
+        hwaddr length = (uint64_t)(max_element - min_element) * a->stride + element_size;
+        uint8_t *actual = g_malloc(length);
+        glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+        glGetBufferSubData(GL_ARRAY_BUFFER, pos, length, actual);
+        ++c->checks;
+        if (memcmp(e->shadow + pos, actual, length)) {
+            nv2a_log("HLE buffers MISMATCH: GPU vertex span slot %u", slot);
+            abort();
+        }
+        g_free(actual);
     }
     ++c->binds;
     *buffer = e->buffer;

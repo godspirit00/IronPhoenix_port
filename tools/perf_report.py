@@ -63,6 +63,9 @@ def summarize(path, start, end):
         buffers = re.search(r"HLE buffers: binds (\d+) hits (\d+) uploads (\d+) bytes (\d+) checks (\d+) readbacks (\d+) evictions (\d+) fallback (\d+) resident (\d+)", line)
         if buffers:
             hle_buffers = dict(zip(("binds", "hits", "uploads", "bytes", "checks", "readbacks", "evictions", "fallback", "resident"), map(int, buffers.groups())))
+            spans = re.search(r"span_updates (\d+) span_bytes (\d+)", line)
+            if spans:
+                hle_buffers.update(zip(("span_updates", "span_bytes"), map(int, spans.groups())))
         resource = re.search(r"HLE resources audit: register (\d+) free (\d+) streams (\d+) textures (\d+) targets (\d+) locks (\d+)", line)
         if resource:
             hle_resources_audit = dict(zip(("register", "free", "streams", "textures", "targets", "locks"), map(int, resource.groups())))

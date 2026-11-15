@@ -10,11 +10,12 @@ class PerfReportTests(unittest.TestCase):
         result = self.report(
             "[ 1 100] HLE buffers mode: verify\n"
             "[ 1 1100] perf: 60 fps\n"
-            "[ 1 2100] HLE buffers: binds 900 hits 800 uploads 100 bytes 4294967296 checks 900 readbacks 32 evictions 2 fallback 3 resident 65536\n")
+            "[ 1 2100] HLE buffers: binds 900 hits 800 uploads 100 bytes 4294967296 checks 900 readbacks 32 evictions 2 fallback 3 resident 65536 span_updates 50 span_bytes 12345\n")
         self.assertEqual(result["hle_buffers_mode"], "verify")
         self.assertEqual(result["hle_buffers"]["bytes"], 4294967296)
         self.assertEqual(result["hle_buffers"]["checks"], 900)
         self.assertEqual(result["hle_buffers"]["readbacks"], 32)
+        self.assertEqual(result["hle_buffers"]["span_updates"], 50)
 
     def test_resource_modes_require_distinct_checked_and_applied_counts(self):
         result = self.report(
