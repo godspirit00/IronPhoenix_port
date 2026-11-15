@@ -42,9 +42,21 @@ They count guest state operations, not every GL operation in surface/display cod
 
 ## Validation in progress
 
-Vulkan-enabled build and native binding/name-reuse tests pass. Parser/runner tests
-cover 64-bit counters and reject invalid verification combinations. Castle
-Entrance's GL verification run is underway; broad scene/transition coverage,
-normal-mode and same-executable reference measurements remain required before
-recommending the change. Shader generation is unchanged; no shader-cache key
-change is needed. Other target GPUs remain untested.
+Both Vulkan-enabled and isolated GL-only builds pass. All four native tests pass,
+including binding/name-reuse scenarios. All 30 Python tests pass, including
+64-bit counter parsing and invalid verification combinations.
+
+Castle Entrance passed `texture-state-castle-verify/`: 241,290 sampled GL state
+checks, 1,353,487 guest binding calls, 45,905,164 skipped binding requests,
+258 anisotropy calls, and 6,177,355 skipped anisotropy writes. Its 115--154 second
+window recorded 59 / 59.47 / 60 FPS. Verification overhead and different fights
+prevent interpreting that as a controlled improvement over the earlier profile.
+
+The candidate is preserved at `scratch/perf/texture-state-prototype.exe`, SHA256
+`4d5a013d6495e022780e204430d9249529979aeaeefe367d576089bcb5741cea`.
+The current build has the same hash and contains both renderer backends.
+The 11-map continuous texture-state verifier is now running. A separate GL-only
+compile overlapped part of its first verification window; that window must not
+be used for performance comparisons. No compile overlaps the later normal-mode
+or same-executable reference measurements. Shader generation is unchanged;
+no shader-cache key change is needed. Other target GPUs remain untested.
