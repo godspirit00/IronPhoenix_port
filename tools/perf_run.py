@@ -133,6 +133,10 @@ def main():
     report = summarize(log, args.start, args.end)
     if args.expect_scene and args.expect_scene.lower() + '.scn' not in report.get('scene_assets', []):
         report['warnings'].append(f"Expected scene {args.expect_scene}.scn was not opened; map route is unverified.")
+    elif args.expect_scene:
+        loaded = [e for e in report.get('scene_events', []) if e['seconds'] <= args.start]
+        if not loaded or loaded[-1]['asset'] != args.expect_scene.lower() + '.scn':
+            report['warnings'].append('Expected scene was not active before the measurement window.')
     budget = report.get('hle_buffers') or {}
     for name, limit in (('peak_admit', 4 * 1024**2), ('peak_compare', 16 * 1024**2), ('peak_update', 4 * 1024**2)):
         if budget.get(name, 0) > limit:

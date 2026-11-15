@@ -6,6 +6,14 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_scene_transition_timestamps_survive_clock_wrap(self):
+        result = self.report(
+            '[ 1 999500] Scene asset opened: se06.scn\n'
+            '[ 1 500] Scene asset opened: sw05.scn\n'
+            '[ 1 1500] perf: 60 fps\n')
+        self.assertEqual(result['scene_events'], [dict(seconds=0.0, asset='se06.scn'),
+                                                 dict(seconds=1.0, asset='sw05.scn')])
+
     def test_scene_and_cache_budget_telemetry(self):
         result = self.report(
             "[ 1 100] Scene asset opened: se06.scn\n"

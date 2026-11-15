@@ -1,8 +1,18 @@
 import unittest
 from pathlib import Path
 from map_routes import MAPS, route
+from map_journey import journey
 
 class MapRoutesTests(unittest.TestCase):
+    def test_journey_separates_combat_from_quit_confirmation(self):
+        text, phases = journey(['summoning-altar', 'yama-hall', 'buddha-cave'])
+        presses = self.presses(text)
+        self.assertEqual([p['scene'] for p in phases], ['sw05', 'se06', 'se08'])
+        self.assertEqual([(p['start'], p['end']) for p in phases], [(115,144),(190,219),(270,299)])
+        for quit_at in (145,225):
+            self.assertEqual([b for t,b in presses if quit_at <= t < quit_at+5],
+                             ['start','up','a','up','left','a'])
+
     def presses(self, text):
         return [(float(p.split(':')[0]), p.split(':')[1]) for p in text.strip().split(',')]
 

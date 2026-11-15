@@ -39,8 +39,26 @@ Example (GPU verification on the reported maps):
 python tools/perf_maps.py --tag reported-maps --mode verify --maps yama-hall summoning-altar
 ```
 
-Initial Yama Hall verification is underway, with scene `se06.scn` confirmed and
-combat currently around 50 fps; final window results and other maps are pending.
-The test also inspects the pause/return flow to add a map-transition session.
-25 Python tests and the native cache-admission/coverage test pass. Runtime scope
-will be recorded explicitly; untested maps must not be reported as validated.
+Both reported maps completed GPU-storage verification at scale 3 / 60 Hz,
+with normal scripted combat measured over 120--184 seconds:
+
+| Map | FPS min / mean / max | GPU checks | Evictions |
+| --- | --- | --- | --- |
+| Yama Hall (`se06`) | 55 / 59.16 / 60 | 11,841 | 0 |
+| Summoning Altar (`sw05`) | 45 / 56.28 / 61 | 6,729 | 0 |
+
+Neither run reported validation failures. Peak new admission was 4 MiB/frame;
+comparison peaks were 5,296,336 and 9,445,044 bytes/frame respectively. Total
+uploads were about 40 MB / 29 MB for these full runs. These encounters are not
+deterministic before/after comparisons and do not prove firm 60.
+Artifacts: `scratch/perf/multimap-{yama,summoning}-verify/`.
+
+Candidate executable SHA256:
+`886538eaf9df0b60aa3331e7fa2f167679c182d8461e461df4616a70351eb4e8`.
+Both Vulkan-enabled and isolated GL-only builds pass. All three native tests
+pass, including cache admission. `tools/map_journey.py` generates a continuous
+11-map deathmatch session, with per-map scene/time windows and combat inputs
+separated from quit confirmation. It is now running in normal buffers mode to
+exercise cross-map cache lifetimes. Remaining mode-specific arenas require
+separate routes. Runtime scope will be recorded explicitly; untested maps must
+not be reported as validated.

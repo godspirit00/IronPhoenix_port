@@ -29,6 +29,7 @@ def summarize(path, start, end):
     hle_buffers_mode = None
     hle_buffers = None
     scene_assets = []
+    scene_events = []
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -55,6 +56,7 @@ def summarize(path, start, end):
             backend = line.split("Renderer active:", 1)[1].strip()
         if "Scene asset opened:" in line:
             scene_assets.append(line.split("Scene asset opened:", 1)[1].strip().lower())
+            scene_events.append(dict(seconds=round(elapsed, 3), asset=scene_assets[-1]))
         if "HLE UP bridge:" in line:
             hle_up_mode = line.split("HLE UP bridge:", 1)[1].split("(", 1)[0].strip()
         if "HLE indexed mode:" in line:
@@ -130,6 +132,7 @@ def summarize(path, start, end):
         "hle_vertex_state": hle_vertex_state, "hle_resource_identities": hle_resource_identities,
         "hle_buffers_mode": hle_buffers_mode, "hle_buffers": hle_buffers,
         "scene_assets": scene_assets,
+        "scene_events": scene_events,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

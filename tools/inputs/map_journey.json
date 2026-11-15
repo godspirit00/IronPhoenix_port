@@ -1,0 +1,68 @@
+[
+  {
+    "map": "summoning-altar",
+    "scene": "sw05",
+    "start": 115,
+    "end": 144
+  },
+  {
+    "map": "yama-hall",
+    "scene": "se06",
+    "start": 190,
+    "end": 219
+  },
+  {
+    "map": "buddha-cave",
+    "scene": "se08",
+    "start": 270,
+    "end": 299
+  },
+  {
+    "map": "great-wall",
+    "scene": "in02",
+    "start": 350,
+    "end": 379
+  },
+  {
+    "map": "temple-of-paganism",
+    "scene": "in03",
+    "start": 430,
+    "end": 459
+  },
+  {
+    "map": "dragon-valley",
+    "scene": "in04",
+    "start": 510,
+    "end": 539
+  },
+  {
+    "map": "training-square",
+    "scene": "se01",
+    "start": 590,
+    "end": 619
+  },
+  {
+    "map": "thousand-bone-tomb",
+    "scene": "se02",
+    "start": 670,
+    "end": 699
+  },
+  {
+    "map": "castle-entrance",
+    "scene": "se03",
+    "start": 750,
+    "end": 779
+  },
+  {
+    "map": "apparatus-maze",
+    "scene": "se04",
+    "start": 830,
+    "end": 859
+  },
+  {
+    "map": "electric-shock-chamber",
+    "scene": "sw04",
+    "start": 910,
+    "end": 939
+  }
+]
