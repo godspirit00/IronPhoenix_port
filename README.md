@@ -50,6 +50,11 @@ share the existing state/resource frontend. See
 vertex-input state preparation. It has not demonstrated a speedup; the existing
 HLE launchers keep this mode off. See [resource-state progress](docs/HLE_RESOURCE_PROGRESS.md).
 
+`run-hle-buffers.cmd` adds experimental OpenGL-owned vertex-range buffers and
+per-draw content checks. It has passed a full Buddha Cave GPU-readback run but
+does not establish a speedup or firm 60 fps. Existing HLE launchers keep buffers
+off. See [buffer ownership progress](docs/HLE_BUFFER_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See

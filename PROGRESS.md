@@ -1,9 +1,11 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
-Owned vertex-buffer experiment in progress (2026-11-15): bounded OpenGL GPU
-ranges now have independent physical-page content versions and fetched-byte
-verification. It remains opt-in pending runtime validation; see
+Owned vertex-buffer checkpoint (2026-11-15): bounded OpenGL GPU ranges have
+per-draw content-shadow comparisons and sampled GPU-readback verification.
+The full Buddha Cave verifier passed 13.8 million attribute binds and 3,399
+GPU checks. Performance comparison is in progress; this remains independently
+opt-in (`run-hle-buffers.cmd`) and firm 60 is unmet. See
 [docs/HLE_BUFFER_PROGRESS.md](docs/HLE_BUFFER_PROGRESS.md).
 
 Resource/state checkpoint (2026-11-15): observed resource identity revisions and

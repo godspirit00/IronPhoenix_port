@@ -2,6 +2,7 @@
  * content versions: every physical page also participates in write watching. */
 #include "renderer.h"
 #include "qemu/fast-hash.h"
+#include "vertex_coverage.h"
 
 #define HLE_BUFFER_COUNT 512
 #define HLE_BUFFER_BUDGET (64u * 1024 * 1024)
@@ -11,6 +12,7 @@ typedef struct HleBufferEntry {
     hwaddr base, size;
     GLuint buffer;
     uint8_t *shadow;
+    NvVertexCoverage coverage;
 } HleBufferEntry;
 struct HleBuffers {
     bool verify;
@@ -137,6 +139,7 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, uns
         if (!e->shadow) e->shadow = g_malloc(size);
         memcpy(e->shadow, source, size);
         source = e->shadow;
+        e->coverage = (NvVertexCoverage){c->draw, 0, size};
         // Orphan storage: earlier submitted draws retain their original bytes.
         if (!e->buffer) {
             glGenBuffers(1, &e->buffer);
@@ -164,13 +167,18 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, uns
         hwaddr pos = address - base + (uint64_t)min_element * a->stride;
         hwaddr length = (uint64_t)(max_element - min_element) * a->stride + element_size;
         assert(pos + length <= size);
-        if (memcmp(e->shadow + pos, d->vram_ptr + base + pos, length)) {
-            memcpy(e->shadow + pos, d->vram_ptr + base + pos, length);
-            glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
-            // GL preserves ordered earlier draws when updating live storage.
-            glBufferSubData(GL_ARRAY_BUFFER, pos, length, e->shadow + pos);
-            ++c->uploads; c->bytes += length;
-            ++c->span_updates; c->span_bytes += length;
+        NvVertexSpan spans[2];
+        unsigned count = nv_vertex_uncovered(&e->coverage, c->draw, pos, pos + length, spans);
+        for (unsigned i = 0; i < count; ++i) {
+            pos = spans[i].begin; length = spans[i].end - pos;
+            if (memcmp(e->shadow + pos, d->vram_ptr + base + pos, length)) {
+                memcpy(e->shadow + pos, d->vram_ptr + base + pos, length);
+                glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+                // GL preserves ordered earlier draws when updating live storage.
+                glBufferSubData(GL_ARRAY_BUFFER, pos, length, e->shadow + pos);
+                ++c->uploads; c->bytes += length;
+                ++c->span_updates; c->span_bytes += length;
+            }
         }
     }
     if (c->verify && (c->binds % 4096 == 0)) {

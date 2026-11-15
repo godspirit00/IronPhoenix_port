@@ -35,6 +35,10 @@ Deletion invalidates cached VAO pointers before GL names can be reused. A CPU
 shadow (also capped at 64 MiB) is retained in both modes. Every cache hit compares
 the contiguous vertex span used by the current draw; changed spans receive an
 ordered partial GPU update. Page versions alone do not authorize reuse.
+Overlapping interleaved attributes share checked coverage within one draw, so
+each byte is compared once per cached range/draw. Extending disjoint coverage
+also checks the gap; a later attribute cannot mistake unchecked holes for valid
+data. A later draw resets coverage and observes its bytes again.
 
 Verification reads back the first 32 GPU uploads and samples a fetched vertex
 span every 4096 attribute binds, comparing GPU storage with immutable CPU upload
@@ -51,6 +55,22 @@ before recommending this experiment. Native page-version tests cover overlapping
 aliases, repeated non-consuming reads, writes to earlier pages, and bounds.
 Runner/report tests cover unsupported combinations and 64-bit upload counters.
 Runtime results and exact executable hash will be recorded here after completion.
+
+The initial span candidate passed a full match (`buffers-final-verify/`):
+13,788,892 binds, 3,399 GPU checks, 32 initial upload readbacks, 3,185 partial
+updates, and no reported failures. The normal-mode run (`buffers-final-fast/`)
+recorded 26 / 44.69 / 61 FPS and 12.237 us per vertex setup callback. Both used
+SHA256 `6fa24686b081d46a6b95ee4fab7aaa99787c4937b38aac2f9ed9cb7b445b5cbf`,
+preserved at `scratch/perf/hle-buffers-final.exe`.
+
+Post-window sampling (190--205 seconds, 284 observations/thread) found 70
+instruction observations in `memcmp` on the graphics worker, 60 in unnamed
+NVIDIA driver code plus 7 under its nearest exported `DrvPresentBuffers` symbol,
+and 77 in condition waits. These are sampled instruction locations, not exact
+call-stack attribution. This motivated sharing comparison coverage between
+interleaved attributes. The first reference run (`buffers-final-reference/`)
+was deliberately stopped before completion to test that measured optimization;
+its report is incomplete and must not serve as a full-window benchmark.
 
 The first race-safe GPU-readback run (`buffers-gpu-verify/`) completed with
 13,277,819 owned attribute binds and 3,274 GPU storage checks, no failures and
