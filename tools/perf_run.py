@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--script", type=Path, default=root / "tools/inputs/buddha_cave.txt")
     parser.add_argument("--seconds", type=float, default=185)
     parser.add_argument("--start", type=float, default=120)
+    parser.add_argument("--end", type=float, help="Measurement window end (default: one second before timeout)")
     parser.add_argument("--scale", type=int, default=3)
     parser.add_argument("--hz", type=int, default=120)
     parser.add_argument("--shots", type=float, default=5)
@@ -36,10 +37,20 @@ def main():
     parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
     parser.add_argument("--dump-after", type=int, default=0)
+    parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
     args = parser.parse_args()
-    if not 0 <= args.start < args.seconds or args.scale < 1 or args.hz < 1 or args.shots < 0:
+    if args.end is None:
+        args.end = args.seconds - 1
+    if not 0 <= args.start < args.end < args.seconds or args.scale < 1 or args.hz < 1 or args.shots < 0:
         parser.error("invalid measurement interval, scale, refresh rate, or screenshot interval")
+    if args.profile:
+        try:
+            profile_start, profile_seconds = map(int, args.profile.split(","))
+        except ValueError:
+            parser.error("--profile must be START,SECONDS using integers")
+        if not 0 <= profile_start <= 65535 or not 1 <= profile_seconds <= 65535 or profile_start + profile_seconds >= args.seconds:
+            parser.error("sampling profile must finish before the run timeout")
     if not args.tag or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in args.tag):
         parser.error("tag must contain only letters, digits, '-' or '_'")
     out = root / "scratch/perf" / args.tag
@@ -68,6 +79,8 @@ def main():
         command += ["--shot-every", str(args.shots)]
     if args.dump_after:
         command += ["--dump-after", str(args.dump_after)]
+    if args.profile:
+        command += ["--profile", args.profile]
     began = time.time()
     timed_out = False
     startup = None
@@ -90,11 +103,13 @@ def main():
                 proc.wait()
     log = out / "ironphoenix.log"
     shutil.copy2(work / "ironphoenix.log", log)
+    if args.profile and (work / "profile.txt").exists() and (work / "profile.txt").stat().st_mtime >= began:
+        shutil.copy2(work / "profile.txt", out / "profile.txt")
     for shot in (work / "shots").glob("*.bmp"):
         if shot.stat().st_mtime >= began:
             (out / "shots").mkdir(exist_ok=True)
             shutil.copy2(shot, out / "shots" / shot.name)
-    report = summarize(log, args.start, args.seconds - 1)
+    report = summarize(log, args.start, args.end)
     if (report.get("backend") or "").lower() != args.renderer:
         report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
     if not timed_out and proc.returncode:
@@ -109,6 +124,7 @@ def main():
                                "fast_vertex": not args.no_fast_vertex, "gpu_timing": args.gpu_timing,
                                "cpu_timing": not args.no_cpu_timing,
                                "renderer": args.renderer,
+                               "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash
     report["configuration"]["script_sha256"] = hashlib.sha256(args.script.read_bytes()).hexdigest()

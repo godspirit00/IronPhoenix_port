@@ -81,6 +81,7 @@ def summarize(path, start, end):
         "cpu_phase_us_per_call": {
             name: round(ms * 1000 / calls, 3) for name, (ms, calls) in phases.items() if calls
         },
+        "cpu_phase_totals_ms": {name: round(ms, 3) for name, (ms, _) in phases.items()},
         "cpu_phase_us_per_draw": {
             name: round(ms * 1000 / draws, 3) for name, (ms, _) in phases.items()
         } if draws else {},

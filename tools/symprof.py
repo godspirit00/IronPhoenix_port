@@ -1,6 +1,11 @@
 """Summarize build/profile.txt: symbolize host addresses and Xbox addresses, hide idle threads."""
 import re, subprocess, bisect, sys
 import os
+import argparse
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--profile', default='build/profile.txt')
+parser.add_argument('--exe', default='build/ironphoenix.exe')
+args = parser.parse_args()
 TC = os.path.abspath('toolchain/llvm-mingw-20261006-ucrt-x86_64/bin/llvm-addr2line.exe')
 xsyms = []
 for l in open('notes/symbols_raw.txt'):
@@ -10,7 +15,7 @@ xsyms.sort()
 threads = []
 sysn = {}
 cur = None
-for l in open('build/profile.txt'):
+for l in open(args.profile):
     m = re.match(r'thread (\d+): (\d+) samples', l)
     if m:
         cur = [int(m.group(1)), int(m.group(2)), []]; threads.append(cur); continue
@@ -23,7 +28,7 @@ for l in open('build/profile.txt'):
 host = sorted({a for t in threads for a, n in t[2] + t[3:] if 0x4b0000 <= a < 0x1000000})
 names = {}
 if host:
-    out = subprocess.run([TC, '-f', '-C', '-e', 'build/ironphoenix.exe'] + [hex(a) for a in host], capture_output=True, text=True).stdout.split('\n')
+    out = subprocess.run([TC, '-f', '-C', '-e', args.exe] + [hex(a) for a in host], capture_output=True, text=True).stdout.split('\n')
     for i, a in enumerate(host): names[a] = out[2 * i]
 def name(a):
     if a in names: return 'host:' + names[a][:60]

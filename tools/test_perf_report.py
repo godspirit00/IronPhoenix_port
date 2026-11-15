@@ -29,6 +29,7 @@ class PerfReportTests(unittest.TestCase):
         self.assertEqual(result["log_duration_seconds"], 1)
         self.assertEqual(result["fps_samples"]["mean"], 70)
         self.assertEqual(result["cpu_phase_us_per_call"], {"draw_begin": 20, "textures": 10})
+        self.assertEqual(result["cpu_phase_totals_ms"], {"draw_begin": 2, "textures": 1})
         self.assertFalse(result["warnings"])
 
     def test_wrong_route_is_rejected(self):
