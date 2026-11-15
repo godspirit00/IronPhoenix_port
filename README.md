@@ -61,6 +61,12 @@ an 11-map continuous session. Firm 60 remains unfinished; see the exact coverage
 remaining dips, and reusable regression tools in
 [multi-map progress](docs/MULTIMAP_PROGRESS.md).
 
+OpenGL now caches texture-stage bindings and anisotropy in ordinary play and
+the HLE launchers. All-map driver-state checks pass; the ordinary Castle test
+held 59--60 fps with fewer driver calls. Set `XB_NO_FAST_TEXTURE_STATE=1` to
+restore the previous binding/anisotropy calls for comparison. Broad firm-60
+performance remains unfinished. See [texture-state progress](docs/TEXTURE_STATE_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See

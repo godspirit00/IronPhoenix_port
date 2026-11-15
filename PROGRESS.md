@@ -1,10 +1,15 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
-Host texture-state checkpoint in progress (2026-11-15): actual GL stage/target
-bindings and per-object anisotropy now have a bounded state snapshot, driver
-verification and a kill switch. Content/alias checks remain active. Profiling and
-validation status: [docs/TEXTURE_STATE_PROGRESS.md](docs/TEXTURE_STATE_PROGRESS.md).
+Host texture-state checkpoint (2026-11-15): actual GL stage/target bindings and
+per-object anisotropy now have a bounded state snapshot, driver verification and
+a kill switch. All 14 available arena scenes passed, including ten transitions
+and 2,143,704 sampled GL state checks. Ordinary-play Castle fast/reference both
+held 59--60 fps; texture setup measured 0.681 / 0.815 us per callback. This cuts
+driver calls but does not establish uncapped FPS gains or firm 60 across maps.
+Both builds, 30 Python tests and four native tests pass. Content/alias checks
+remain active. Details and next constant-packet boundary:
+[docs/TEXTURE_STATE_PROGRESS.md](docs/TEXTURE_STATE_PROGRESS.md).
 
 Multi-map regression investigation (2026-11-15): the user's Yama Hall/Summoning
 Altar 1 fps report revealed owned-buffer cache thrashing (55 GB uploads and

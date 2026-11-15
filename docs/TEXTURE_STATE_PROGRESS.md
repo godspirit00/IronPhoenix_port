@@ -40,7 +40,7 @@ anisotropy. Verification aborts on mismatch; it is separate from normal timing.
 Counters distinguish calls, skipped requests, invalidations and GPU state checks.
 They count guest state operations, not every GL operation in surface/display code.
 
-## Validation in progress
+## Validation and measurements
 
 Both Vulkan-enabled and isolated GL-only builds pass. All four native tests pass,
 including binding/name-reuse scenarios. All 30 Python tests pass, including
@@ -66,10 +66,70 @@ every map were inspected. The owned-buffer budgets still held: peak admission
 Artifacts: `scratch/perf/texture-state-journey-verify/`, including
 `map_journey.results.json`. These are GL state comparisons and limited visual
 checks, not pixel-for-pixel equivalence with the old renderer. Red Viper's Den
-will retain the previous entry/transport-area coverage limitation.
+retains the previous entry/transport-area coverage limitation.
+
+The three mode-specific scenes also passed, including actual-GL verification:
+
+| Scene | FPS min / mean / max (verification) | GL state checks |
+| --- | --- | --- |
+| Night Demon Warship | 40 / 50.53 / 60 | 181,540 |
+| Training Square at night | 57 / 59.11 / 60 | 195,011 |
+| Red Viper's Den entry area | 59 / 59.37 / 60 | 60,187 |
+
+Artifacts: `scratch/perf/texture-state-special/` and its per-map sibling
+directories. All 14 available arena scenes were opened and rendered, and the
+continuous session covered ten map transitions. Captured scene geometry,
+characters, lighting, effects and HUD were inspected. The five verification
+runs performed 2,143,704 sampled GL state checks in total with no reported
+mismatches. Resource-content validation and buffer admission fallback remained
+active; there was no recurrence of the 1 fps cache-thrashing failure.
 
 A separate GL-only
 compile overlapped part of its first verification window; that window must not
 be used for performance comparisons. No compile overlaps the later normal-mode
 or same-executable reference measurements. Shader generation is unchanged;
 no shader-cache key change is needed. Other target GPUs remain untested.
+
+### Same-executable ordinary-play pair
+
+Both runs below used the candidate hash above, OpenGL, scale 3, 60 Hz, screenshots
+every 10 seconds and the Castle route. All HLE experiment flags, GPU timing and
+verification were off. Measurement window: 120--184 seconds. The reference used
+`--no-fast-texture-state`; no other setting changed. Both runs completed without
+reported errors, confirming the ordinary frontend as well as the HLE path.
+
+| Mode | FPS min / mean / max | Texture setup us/callback | Draw callbacks in window |
+| --- | --- | --- | --- |
+| Snapshot enabled | 59 / 59.38 / 60 | 0.681 | 3,874,506 |
+| Previous binding/aniso calls | 59 / 59.44 / 60 | 0.815 | 3,884,332 |
+
+Full-run guest state counters (including menus):
+
+| Mode | Active-stage calls | Binding calls | Anisotropy writes |
+| --- | --- | --- | --- |
+| Snapshot enabled | 6,342,385 | 2,276,460 | 257 |
+| Previous calls | 24,480,956 | 69,775,576 | 9,382,664 |
+
+The snapshot recorded 68,821,832 skipped binding requests and 9,383,167 skipped
+anisotropy writes. These counters exclude surface/display raw calls and are not
+a count of all GL driver traffic. Different NPC encounters prevent treating the
+pair as deterministic replay. The lower measured texture setup cost and fewer
+driver calls are useful evidence; no uncapped FPS gain or firm-60 result across
+all maps is established. Other-map verification still recorded drops, including
+a 19 FPS Castle sample. Do not extrapolate this capped pair to weaker GPUs.
+Artifacts: `texture-state-normal-castle/` and `texture-state-reference-castle/`.
+
+The exact tested binary is retained in `build/ironphoenix.exe` and
+`scratch/perf/texture-state-prototype.exe`. All benchmark processes have ended.
+Existing `.claude/` worktrees were left untouched.
+
+## Next native state boundary
+
+Audit vertex-shader constant setters and the SDK general-state helper for a
+bounded immutable constant-packet path. Compare register destinations and raw
+words against the original ordered stream before bypassing payload generation
+or NV2A method decoding, and preserve state-block/recording fallback. This is a
+safer next step than removing live-resource coherence checks. The current host
+binding snapshot does not eliminate the general-state or shader-constant
+pipeline. Keep all-map/transition checks, and add deterministic workload capture
+before claiming small end-to-end speed differences or reliable frame-time lows.
