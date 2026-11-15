@@ -48,7 +48,7 @@ calls, submissions, consumptions, fallbacks and verified packets.
 - Native packing tests pass (`tools/test_hle_up_layout.cpp`), covering contiguous
   attributes, skipped attributes, source stride/offset, invalid declaration size,
   bounds and rejection without modifying output.
-- Scripted original-packing conformance run is in progress:
+- Original-packing conformance:
   first attempt `scratch/perf/hle-up-verify/` exposed non-atomic verification
   marker reservation under queue pressure. Both markers now reserve together;
   capacity exhaustion falls back before any marker is emitted.
@@ -60,8 +60,42 @@ calls, submissions, consumptions, fallbacks and verified packets.
 - Private helper entry points are signature-checked. Recording/capture flags
   conservatively fall back so host tokens are not saved into replayable buffers.
 - `run-hle-up.cmd` launches the opt-in direct bridge on OpenGL in this checkout.
-- Next: inspect coverage and conformance, run the direct-packet path through the
-  same route, preserve comparisons and assess whether UP has useful coverage.
+- Direct-packet gameplay run completed (`scratch/perf/hle-up-direct/`): 390,251
+  packets submitted and consumed, one fallback, no reported runtime validation
+  failures. Menus and Buddha Cave gameplay were visually inspected. At scale 3,
+  60 Hz, timers enabled and shots every 10 seconds, the 120–184 second window
+  recorded 51 / 59.16 / 60 FPS min/mean/max. This is not proof of a speedup:
+  the fight/camera is not deterministic.
+- Same-build disabled reference completed (`scratch/perf/hle-up-off-reference/`):
+  36 / 57.47 / 60 FPS, with no active HLE mode in the log. Both runs use the
+  identical executable/script hashes and settings. Direct processed 1,901,836
+  draw callbacks versus 2,324,537 for the reference in the window. Its pusher
+  wall time was 40.799 s versus 45.905 s, but the lower draw workload means this
+  does not establish an overall performance improvement. Firm 60 fps is unmet.
+- Exact direct-run executable saved as `scratch/perf/hle-up-prototype.exe`, SHA256
+  `4ef81dcfcd486a2c639a9f15cb541e8708be59acead43859d50417038374998f`.
+- Benchmark reports verify the requested HLE mode was actually exercised and
+  include cumulative coverage counters, independent of the FPS window.
+- 16 Python tooling tests and the native packing test pass.
+- Vulkan 45-second startup/menu smoke passed with the direct bridge active:
+  `scratch/perf/hle-up-vulkan-smoke/`, 18,211 packets consumed, no fallbacks or
+  reported runtime failures. The captured menu was visually inspected. Vulkan
+  combat with this bridge and other GPUs remain unvalidated.
+- Ordinary GL-only compilation also passed. The exact validated Vulkan-enabled
+  executable was restored from `scratch/perf/hle-up-prototype.exe` afterward:
+  both renderer backends are available and the HLE bridge remains opt-in.
+- Benchmark/validation game processes have ended. Existing `.claude/` worktrees
+  were not changed.
+
+## Next milestone
+
+Audit dynamic DrawIndexedVertices/RunPushBuffer coverage before selecting the
+next high-level boundary. Most indexed geometry remains on the original path;
+optimizing only UP cannot remove its cost. A complete high-level frontend needs
+state/resource ownership and deferred draw snapshots without guest command
+markers. Retain byte/ordering conformance and measured workload controls while
+expanding coverage. This checkpoint proves one interception/submission path,
+not the full high-level architecture proposed in the investigation.
 
 Reproduce:
 

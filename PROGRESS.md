@@ -1,6 +1,12 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+High-level bridge checkpoint (2026-11-15): opt-in DrawVerticesUP host packets now
+render menus and Buddha Cave, with original-packing conformance and fallbacks.
+See [docs/HLE_D3D8_PROGRESS.md](docs/HLE_D3D8_PROGRESS.md) for tests, measured
+limits, launcher and the next frontend boundary. This remains hybrid rendering;
+the firm-60 goal and complete high-level state/resource replacement are open.
+
 Renderer investigation (2026-11-15): user-reported Vulkan regression reproduced
 in Buddha Cave. CPU timing, resolution probes and a post-window stack sample
 are recorded in [docs/RENDERER_INVESTIGATION.md](docs/RENDERER_INVESTIGATION.md).

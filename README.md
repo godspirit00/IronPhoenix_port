@@ -36,6 +36,11 @@ The first launch compiles and caches GPU shaders (`shaders\`), so the boot logos
 
 ## Command-line options
 
+The source checkout also contains an opt-in high-level `DrawVerticesUP` bridge:
+launch `run-hle-up.cmd` to try it on OpenGL. This is an experimental hybrid
+frontend, with state and resource handling still using the existing path.
+See [prototype coverage and validation](docs/HLE_D3D8_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See
