@@ -107,6 +107,14 @@ construction) pass. No generated shader code changed, so cache keys are unchange
 
 ## Next resource boundary
 
+Follow-on checkpoint: bounded OpenGL-owned vertex ranges and sampled GPU
+readback validation are implemented in
+[HLE_BUFFER_PROGRESS.md](HLE_BUFFER_PROGRESS.md). They use independent CPU
+shadows and shared per-draw comparison coverage; whole allocation/view ownership
+is still incomplete. No overall FPS speedup was established, so buffers remain
+independently opt-in. That document contains the latest binary, measurements,
+failed verification approaches and next submission boundary.
+
 Vertex-input preparation now has useful coverage, but backend buffer/texture
 allocations, RAM dirtiness, upload decisions and surface synchronization remain
 legacy. Next, model backing allocations and parent/view aliases, detect CPU

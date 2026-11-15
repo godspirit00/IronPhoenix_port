@@ -48,13 +48,64 @@ reference: the CPU can already be writing bytes for a later draw.
 It aborts on an actual fetched-byte or upload mismatch. Verification overhead is
 deliberate; use mode `1` for performance measurements after validation.
 
-## Validation in progress
+## Validation and measurements
 
-Both renderer build configurations and the scripted Buddha Cave route must pass
-before recommending this experiment. Native page-version tests cover overlapping
-aliases, repeated non-consuming reads, writes to earlier pages, and bounds.
-Runner/report tests cover unsupported combinations and 64-bit upload counters.
-Runtime results and exact executable hash will be recorded here after completion.
+Both OpenGL-only and Vulkan-enabled builds pass. The GL-only compile used
+`scratch/gl-only-check/` while the menus ran, finishing before the FPS window;
+the tested Vulkan-enabled executable in `build/` was retained. Vulkan buffer
+ownership is not implemented or runtime-tested by this milestone.
+Native tests cover page-version aliases/bounds, per-draw overlapping and disjoint
+coverage, resource/state preparation, and UP/index packing. All 22 Python
+runner/report tests pass. Shader generation is unchanged; caches remain valid.
+
+The final overlap candidate is preserved at
+`scratch/perf/hle-buffers-coverage.exe`, SHA256
+`1cab04c6abe31215a71f721b327a8fc4abe1303697f7c9f6c2e47a5428eb758f`.
+The root `build/ironphoenix.exe` has the same hash and contains both backends.
+All final tests use OpenGL, scale 3, 60 Hz, screenshots every 10 seconds,
+UP/indexed/resources mode `1`, with FPS measured over 120--184 seconds.
+
+| Final candidate | FPS min / mean / max | Vertex setup us/callback |
+| --- | --- | --- |
+| GPU verification | 27 / 51.22 / 60 | 4.875 |
+| Buffers enabled, no GPU readback | 13 / 32.72 / 55 | 5.551 |
+| Buffers off reference | 22 / 37.03 / 60 | 2.743 |
+
+`buffers-coverage-verify/` exercised 15,583,928 owned attribute binds and 3,837
+GPU storage checks (including 32 initial upload readbacks), with 3,874 partial
+updates, 3 evictions, zero fallback attributes and no reported failures.
+`buffers-coverage-fast/` exercised 17,819,158 owned binds, 4,358 partial updates,
+10 evictions and zero fallback attributes, with no reported failures. Captured
+combat geometry, lighting and HUD were inspected. These are sampled GPU-storage
+checks and limited visual validation, not pixel equivalence or proof of complete
+CPU/GPU temporal equivalence with the legacy path.
+
+Overlapping comparisons reduced vertex setup cost relative to the initial
+span candidate, but firm 60 remains unmet. Different encounters explain why
+verification can have higher FPS than normal mode; verification is not faster
+by design. The normal run processed 1,902,771 draw callbacks in the window versus
+1,543,437 for verification, with different state/texture/driver costs. Do not
+derive a speedup ratio or resolution-scaling curve from these fights. The buffer
+path remains independently experimental, available through `run-hle-buffers.cmd`.
+
+The same-executable `buffers-coverage-reference/` run completed without reported
+failures, processing 1,994,292 draw callbacks in the measurement window. Its
+vertex setup remained cheaper than the owned path. The final results establish
+no overall FPS improvement and do not justify enabling owned buffers by default.
+The buffer path reduces upload traffic and provides a tested ownership boundary,
+but retains CPU content comparisons and the existing state/texture/surface
+pipeline. OpenGL with the existing ordinary-play settings remains recommended.
+All benchmark processes have ended. Other target GPUs remain untested.
+
+## Next milestone
+
+Profile and compare complete draw-state submission on a deterministic workload,
+then move a bounded set of render/texture/shader state into owned host snapshots
+and a host submission path. Current indexed packets still execute the SDK's
+general-state helper and the NV2A state/resource pipeline. Expanding storage
+ownership alone must not be assumed to remove those costs. Preserve fallback
+and compare state/order before bypassing more command generation or RAM checks.
+Full allocation/view lifetimes and surface/texture ownership remain open.
 
 The initial span candidate passed a full match (`buffers-final-verify/`):
 13,788,892 binds, 3,399 GPU checks, 32 initial upload readbacks, 3,185 partial

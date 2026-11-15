@@ -3,9 +3,11 @@
 ## Goal
 Owned vertex-buffer checkpoint (2026-11-15): bounded OpenGL GPU ranges have
 per-draw content-shadow comparisons and sampled GPU-readback verification.
-The full Buddha Cave verifier passed 13.8 million attribute binds and 3,399
-GPU checks. Performance comparison is in progress; this remains independently
-opt-in (`run-hle-buffers.cmd`) and firm 60 is unmet. See
+The final Buddha Cave verifier passed 15.6 million attribute binds and 3,837
+sampled GPU checks. Same-build normal/reference runs averaged 32.72 / 37.03 fps
+in different encounters: no overall speedup is established, and firm 60 is unmet.
+Both renderer builds, 22 Python tests and three native tests pass. This remains
+independently opt-in (`run-hle-buffers.cmd`); ordinary launchers keep it off. See
 [docs/HLE_BUFFER_PROGRESS.md](docs/HLE_BUFFER_PROGRESS.md).
 
 Resource/state checkpoint (2026-11-15): observed resource identity revisions and
