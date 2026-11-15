@@ -1,6 +1,13 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Indexed HLE checkpoint (2026-11-15): runtime audit found heavy direct indexed
+coverage in Buddha Cave. Owned indexed packets now bypass guest index-payload
+generation/decoding, with 3.2 million original-stream comparisons matched and
+full gameplay runs on GL and Vulkan. See
+[docs/HLE_INDEXED_PROGRESS.md](docs/HLE_INDEXED_PROGRESS.md) and `run-hle.cmd`.
+Firm 60 remains unmet; direct resource/state ownership is the next boundary.
+
 High-level bridge checkpoint (2026-11-15): opt-in DrawVerticesUP host packets now
 render menus and Buddha Cave, with original-packing conformance and fallbacks.
 See [docs/HLE_D3D8_PROGRESS.md](docs/HLE_D3D8_PROGRESS.md) for tests, measured

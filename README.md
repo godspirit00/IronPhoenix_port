@@ -41,6 +41,11 @@ launch `run-hle-up.cmd` to try it on OpenGL. This is an experimental hybrid
 frontend, with state and resource handling still using the existing path.
 See [prototype coverage and validation](docs/HLE_D3D8_PROGRESS.md).
 
+`run-hle.cmd` additionally enables the indexed-draw bridge, covering the direct
+indexed API used heavily in Buddha Cave. Both bridges are experimental and still
+share the existing state/resource frontend. See
+[indexed coverage and measurements](docs/HLE_INDEXED_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See
