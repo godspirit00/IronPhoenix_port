@@ -1,5 +1,6 @@
 #include "../src/nv2a/compat/range_versions.h"
 #include "../src/nv2a/compat/vertex_coverage.h"
+#include "../src/nv2a/compat/hle_buffer_budget.h"
 #include <cassert>
 #include <cstdio>
 
@@ -49,5 +50,26 @@ int main() {
     assert(nv_vertex_uncovered(&coverage, 2, 110, 190, spans) == 1);
     assert(spans[0].begin == 110 && spans[0].end == 190);
     assert(nv_vertex_uncovered(&coverage, 2, 0, 0, spans) == 0);
-    puts("HLE buffer page-version and draw-coverage tests passed");
+    assert(hle_buffer_capacity(4097) == 8192);
+    assert(hle_buffer_capacity(6144) == hle_buffer_capacity(8192));
+    assert(hle_buffer_capacity(8193) == 16384);
+    assert(hle_buffer_capacity(SIZE_MAX) == 0);
+    size_t admitted = 0;
+    unsigned accepted = 0;
+    // Replay a cache-thrashing frame: 720 draws with 2 MiB cache misses.
+    // Only two misses may allocate/upload; the rest must use legacy buffers.
+    for (unsigned i = 0; i < 720; ++i)
+        accepted += hle_buffer_reserve(&admitted, 2 * 1024 * 1024, HLE_BUFFER_ADMIT_LIMIT);
+    assert(accepted == 2 && admitted == HLE_BUFFER_ADMIT_LIMIT);
+    assert(!hle_buffer_reserve(&admitted, SIZE_MAX, HLE_BUFFER_ADMIT_LIMIT));
+    assert(admitted == HLE_BUFFER_ADMIT_LIMIT);
+    size_t compared = 0, updated = 0;
+    assert(hle_buffer_reserve(&compared, HLE_BUFFER_COMPARE_LIMIT, HLE_BUFFER_COMPARE_LIMIT));
+    assert(!hle_buffer_reserve(&compared, 1, HLE_BUFFER_COMPARE_LIMIT));
+    assert(hle_buffer_reserve(&updated, HLE_BUFFER_UPDATE_LIMIT, HLE_BUFFER_UPDATE_LIMIT));
+    assert(!hle_buffer_reserve(&updated, 1, HLE_BUFFER_UPDATE_LIMIT));
+    assert(hle_buffer_recent(100, 100) && hle_buffer_recent(100, 99));
+    assert(!hle_buffer_recent(100, 98));
+    assert(hle_buffer_recent(0, UINT32_MAX));
+    puts("HLE buffer versions, coverage and cache-admission tests passed");
 }

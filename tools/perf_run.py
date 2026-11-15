@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
+    parser.add_argument("--expect-scene", help="Require a scene asset open, e.g. se06 for Yama Hall")
     args = parser.parse_args()
     if args.end is None:
         args.end = args.seconds - 1
@@ -130,6 +131,12 @@ def main():
             (out / "shots").mkdir(exist_ok=True)
             shutil.copy2(shot, out / "shots" / shot.name)
     report = summarize(log, args.start, args.end)
+    if args.expect_scene and args.expect_scene.lower() + '.scn' not in report.get('scene_assets', []):
+        report['warnings'].append(f"Expected scene {args.expect_scene}.scn was not opened; map route is unverified.")
+    budget = report.get('hle_buffers') or {}
+    for name, limit in (('peak_admit', 4 * 1024**2), ('peak_compare', 16 * 1024**2), ('peak_update', 4 * 1024**2)):
+        if budget.get(name, 0) > limit:
+            report['warnings'].append(f'Owned buffer {name} exceeded its frame budget.')
     if (report.get("backend") or "").lower() != args.renderer:
         report["warnings"].append(f"Requested {args.renderer} but active renderer was not verified in the log.")
     if args.hle_indexed != "off" and report.get("hle_indexed_mode") != args.hle_indexed:
@@ -170,6 +177,7 @@ def main():
                                "hle_indexed": args.hle_indexed,
                                "hle_resources": args.hle_resources,
                                "hle_buffers": args.hle_buffers,
+                               "expected_scene": args.expect_scene,
                                "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash

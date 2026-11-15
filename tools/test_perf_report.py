@@ -6,6 +6,15 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_scene_and_cache_budget_telemetry(self):
+        result = self.report(
+            "[ 1 100] Scene asset opened: se06.scn\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE buffers: binds 900 hits 800 uploads 100 bytes 4294967296 checks 900 readbacks 32 evictions 2 fallback 3 resident 65536 span_updates 50 span_bytes 12345 admission_fallback 5 compare_fallback 6 update_fallback 7 peak_admit 4194304 peak_compare 16777216 peak_update 1048576\n")
+        self.assertEqual(result['scene_assets'], ['se06.scn'])
+        self.assertEqual(result['hle_buffers']['admission_fallback'], 5)
+        self.assertEqual(result['hle_buffers']['peak_compare'], 16777216)
+
     def test_owned_buffer_verification_preserves_large_byte_counts(self):
         result = self.report(
             "[ 1 100] HLE buffers mode: verify\n"

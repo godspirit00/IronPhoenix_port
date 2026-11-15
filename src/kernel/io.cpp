@@ -315,6 +315,13 @@ static uint32_t create_file(uint32_t *FileHandle, uint32_t DesiredAccess, X_OBJE
     *FileHandle = handle;
     iosb->Status = X_STATUS_SUCCESS;
     iosb->Information = info;
+    if (!is_dir) {
+        std::string scene = lower(name);
+        if (scene.size() >= 4 && scene.compare(scene.size() - 4, 4, ".scn") == 0) {
+            size_t slash = scene.find_last_of("\\/");
+            logf("Scene asset opened: %s", scene.substr(slash == std::string::npos ? 0 : slash + 1).c_str());
+        }
+    }
     LOGF("NtCreateFile %s disp=%u opt=%x -> %08x (%s)", name.c_str(), Disposition, Options, handle, hpath.c_str());
     return X_STATUS_SUCCESS;
 }

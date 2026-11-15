@@ -28,6 +28,7 @@ def summarize(path, start, end):
     hle_resource_identities = None
     hle_buffers_mode = None
     hle_buffers = None
+    scene_assets = []
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -52,6 +53,8 @@ def summarize(path, start, end):
             renderer = line.split("OpenGL:", 1)[1].strip()
         if "Renderer active:" in line:
             backend = line.split("Renderer active:", 1)[1].strip()
+        if "Scene asset opened:" in line:
+            scene_assets.append(line.split("Scene asset opened:", 1)[1].strip().lower())
         if "HLE UP bridge:" in line:
             hle_up_mode = line.split("HLE UP bridge:", 1)[1].split("(", 1)[0].strip()
         if "HLE indexed mode:" in line:
@@ -66,6 +69,9 @@ def summarize(path, start, end):
             spans = re.search(r"span_updates (\d+) span_bytes (\d+)", line)
             if spans:
                 hle_buffers.update(zip(("span_updates", "span_bytes"), map(int, spans.groups())))
+            limits = re.search(r"admission_fallback (\d+) compare_fallback (\d+) update_fallback (\d+) peak_admit (\d+) peak_compare (\d+) peak_update (\d+)", line)
+            if limits:
+                hle_buffers.update(zip(("admission_fallback", "compare_fallback", "update_fallback", "peak_admit", "peak_compare", "peak_update"), map(int, limits.groups())))
         resource = re.search(r"HLE resources audit: register (\d+) free (\d+) streams (\d+) textures (\d+) targets (\d+) locks (\d+)", line)
         if resource:
             hle_resources_audit = dict(zip(("register", "free", "streams", "textures", "targets", "locks"), map(int, resource.groups())))
@@ -123,6 +129,7 @@ def summarize(path, start, end):
         "hle_resources_mode": hle_resources_mode, "hle_resources_audit": hle_resources_audit,
         "hle_vertex_state": hle_vertex_state, "hle_resource_identities": hle_resource_identities,
         "hle_buffers_mode": hle_buffers_mode, "hle_buffers": hle_buffers,
+        "scene_assets": scene_assets,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

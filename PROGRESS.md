@@ -1,6 +1,14 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Multi-map regression investigation (2026-11-15): the user's Yama Hall/Summoning
+Altar 1 fps report revealed owned-buffer cache thrashing (55 GB uploads and
+43,008 evictions). Capacity buckets, recent-frame protection and per-frame work
+budgets now fall back to the existing vertex path instead of churning. Expanded
+map/transition validation is underway; see
+[docs/MULTIMAP_PROGRESS.md](docs/MULTIMAP_PROGRESS.md). The earlier one-map
+checkpoint below must not be treated as broad map validation.
+
 Owned vertex-buffer checkpoint (2026-11-15): bounded OpenGL GPU ranges have
 per-draw content-shadow comparisons and sampled GPU-readback verification.
 The final Buddha Cave verifier passed 15.6 million attribute binds and 3,837
