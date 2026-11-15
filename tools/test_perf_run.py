@@ -6,6 +6,9 @@ from pathlib import Path
 
 
 class PerfRunArgumentsTests(unittest.TestCase):
+    def test_texture_state_verification_requires_active_gl_cache(self):
+        self.assertIn('requires the fast OpenGL', self.reject('--texture-state-verify', '--renderer', 'vulkan'))
+        self.assertIn('requires the fast OpenGL', self.reject('--texture-state-verify', '--no-fast-texture-state'))
     def test_owned_buffers_require_supported_renderer_and_frontend(self):
         self.assertIn('owned buffers require', self.reject('--hle-buffers', '1'))
         self.assertIn('owned buffers require', self.reject('--hle-buffers', 'verify', '--renderer', 'vulkan', '--hle-indexed', '1', '--hle-resources', '1'))

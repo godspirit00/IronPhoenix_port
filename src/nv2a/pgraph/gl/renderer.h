@@ -37,6 +37,7 @@
 
 #include "gloffscreen.h"
 #include "constants.h"
+#include "texture_binding_shadow.h"
 
 typedef struct SurfaceBinding {
     QTAILQ_ENTRY(SurfaceBinding) entry;
@@ -81,6 +82,7 @@ typedef struct TextureBinding {
     unsigned int addru;
     unsigned int addrv;
     unsigned int addrp;
+    uint32_t max_anisotropy;
     uint32_t border_color;
     bool border_color_set;
     GLenum gl_target;
@@ -227,6 +229,13 @@ typedef struct PGRAPHGLState {
     QemuEvent dirty_surfaces_download_complete; // common
 
     TextureBinding *texture_binding[NV2A_MAX_TEXTURES];
+    NvTextureBindingShadow texture_binding_shadow;
+    bool no_fast_texture_state, verify_texture_state;
+    struct {
+        uint64_t active_calls, bind_calls, bind_skips, aniso_calls, aniso_skips;
+        uint64_t invalidations, checks, draws;
+        int report_frame;
+    } texture_state_stats;
     Lru texture_cache;
     TextureLruNode *texture_cache_entries;
 
@@ -295,6 +304,7 @@ void pgraph_gl_attribute_pointer(PGRAPHGLState *r, unsigned int index, GLuint bu
                                  GLsizei stride, uintptr_t offset, bool integer);
 void pgraph_gl_override_ui_squash(ShaderBinding *binding, float squash);
 void pgraph_gl_bind_textures(NV2AState *d);
+void pgraph_gl_invalidate_texture_bindings(PGRAPHGLState *r);
 void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element, unsigned int max_element, bool inline_data, unsigned int inline_stride, unsigned int provoking_element);
 bool pgraph_gl_check_surface_to_texture_compatibility(const SurfaceBinding *surface, const TextureShape *shape);
 GLuint pgraph_gl_compile_shader(const char *vs_src, const char *fs_src);

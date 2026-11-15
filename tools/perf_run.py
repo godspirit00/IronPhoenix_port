@@ -33,6 +33,8 @@ def main():
     parser.add_argument("--no-fast-uniforms", action="store_true")
     parser.add_argument("--no-fast-copy", action="store_true")
     parser.add_argument("--no-fast-vertex", action="store_true")
+    parser.add_argument("--no-fast-texture-state", action="store_true")
+    parser.add_argument("--texture-state-verify", action="store_true")
     parser.add_argument("--gpu-timing", action="store_true")
     parser.add_argument("--no-cpu-timing", action="store_true")
     parser.add_argument("--renderer", choices=("opengl", "vulkan"), default="opengl")
@@ -58,6 +60,8 @@ def main():
             parser.error("sampling profile must finish before the run timeout")
     if args.hle_resources in ("verify", "1") and args.hle_indexed not in ("verify", "1"):
         parser.error("resource state snapshots require an active indexed bridge")
+    if args.texture_state_verify and (args.renderer != 'opengl' or args.no_fast_texture_state):
+        parser.error('texture-state verification requires the fast OpenGL texture-state path')
     if args.hle_buffers != "off" and (args.renderer != "opengl" or args.hle_indexed != "1" or args.hle_resources not in ("verify", "1") or args.no_fast_vertex):
         parser.error("owned buffers require OpenGL, native indexed packets, resource snapshots and fast vertex state")
     if not args.tag or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in args.tag):
@@ -86,6 +90,8 @@ def main():
                           ("XB_NO_FAST_UNIFORMS", args.no_fast_uniforms),
                           ("XB_NO_FAST_COPY", args.no_fast_copy),
                           ("XB_NO_FAST_VERTEX", args.no_fast_vertex),
+                          ("XB_NO_FAST_TEXTURE_STATE", args.no_fast_texture_state),
+                          ("XB_TEXTURE_STATE_VERIFY", args.texture_state_verify),
                           ("XB_GPU_TIMING", args.gpu_timing),
                           ("XB_CPU_TIMING", not args.no_cpu_timing),
                           ("XB_GL_DEBUG", args.gl_debug)):
@@ -131,6 +137,10 @@ def main():
             (out / "shots").mkdir(exist_ok=True)
             shutil.copy2(shot, out / "shots" / shot.name)
     report = summarize(log, args.start, args.end)
+    if args.texture_state_verify and (report.get('texture_state_mode') != 'verify' or not (report.get('texture_state') or {}).get('checks')):
+        report['warnings'].append('Texture-state GPU verification was not exercised.')
+    if args.no_fast_texture_state and report.get('texture_state_mode') != 'off':
+        report['warnings'].append('Requested legacy texture-state calls were not verified.')
     if args.expect_scene and args.expect_scene.lower() + '.scn' not in report.get('scene_assets', []):
         report['warnings'].append(f"Expected scene {args.expect_scene}.scn was not opened; map route is unverified.")
     elif args.expect_scene:
@@ -175,6 +185,8 @@ def main():
                                "fast_uniforms": not args.no_fast_uniforms, "gl_debug": args.gl_debug,
                                "fast_copy": not args.no_fast_copy,
                                "fast_vertex": not args.no_fast_vertex, "gpu_timing": args.gpu_timing,
+                               "fast_texture_state": not args.no_fast_texture_state,
+                               "texture_state_verify": args.texture_state_verify,
                                "cpu_timing": not args.no_cpu_timing,
                                "renderer": args.renderer,
                                "hle_up": args.hle_up,

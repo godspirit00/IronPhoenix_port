@@ -30,6 +30,8 @@ def summarize(path, start, end):
     hle_buffers = None
     scene_assets = []
     scene_events = []
+    texture_state_mode = None
+    texture_state = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -69,6 +71,11 @@ def summarize(path, start, end):
             hle_resources_mode = line.split("HLE resources mode:", 1)[1].strip()
         if "HLE buffers mode:" in line:
             hle_buffers_mode = line.split("HLE buffers mode:", 1)[1].strip()
+        if 'Texture state mode:' in line:
+            texture_state_mode = line.split('Texture state mode:', 1)[1].strip()
+        textures = re.search(r'Texture state: active_calls (\d+) bind_calls (\d+) bind_skips (\d+) aniso_calls (\d+) aniso_skips (\d+) invalidations (\d+) checks (\d+)', line)
+        if textures:
+            texture_state = dict(zip(('active_calls','bind_calls','bind_skips','aniso_calls','aniso_skips','invalidations','checks'), map(int, textures.groups())))
         buffers = re.search(r"HLE buffers: binds (\d+) hits (\d+) uploads (\d+) bytes (\d+) checks (\d+) readbacks (\d+) evictions (\d+) fallback (\d+) resident (\d+)", line)
         if buffers:
             hle_buffers = dict(zip(("binds", "hits", "uploads", "bytes", "checks", "readbacks", "evictions", "fallback", "resident"), map(int, buffers.groups())))
@@ -137,6 +144,7 @@ def summarize(path, start, end):
         "hle_buffers_mode": hle_buffers_mode, "hle_buffers": hle_buffers,
         "scene_assets": scene_assets,
         "scene_events": scene_events,
+        "texture_state_mode": texture_state_mode, "texture_state": texture_state,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

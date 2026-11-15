@@ -1,6 +1,11 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Host texture-state checkpoint in progress (2026-11-15): actual GL stage/target
+bindings and per-object anisotropy now have a bounded state snapshot, driver
+verification and a kill switch. Content/alias checks remain active. Profiling and
+validation status: [docs/TEXTURE_STATE_PROGRESS.md](docs/TEXTURE_STATE_PROGRESS.md).
+
 Multi-map regression investigation (2026-11-15): the user's Yama Hall/Summoning
 Altar 1 fps report revealed owned-buffer cache thrashing (55 GB uploads and
 43,008 evictions). Capacity buckets, recent-frame protection and per-frame work

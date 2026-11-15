@@ -6,6 +6,15 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_texture_state_calls_and_gpu_checks_are_distinct(self):
+        result = self.report(
+            '[ 1 100] Texture state mode: verify\n'
+            '[ 1 1100] perf: 60 fps\n'
+            '[ 1 2100] Texture state: active_calls 20 bind_calls 30 bind_skips 4294967296 aniso_calls 4 aniso_skips 500 invalidations 6 checks 700\n')
+        self.assertEqual(result['texture_state_mode'], 'verify')
+        self.assertEqual(result['texture_state']['bind_skips'], 4294967296)
+        self.assertEqual(result['texture_state']['aniso_calls'], 4)
+        self.assertEqual(result['texture_state']['checks'], 700)
     def test_scene_transition_timestamps_survive_clock_wrap(self):
         result = self.report(
             '[ 1 999500] Scene asset opened: se06.scn\n'

@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--seconds', type=int, default=155)
     parser.add_argument('--start', type=int, default=115)
     parser.add_argument('--minimum-fps', type=int, default=5)
+    parser.add_argument('--texture-state-verify', action='store_true')
     args = parser.parse_args()
     if not args.tag or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in args.tag):
         parser.error('invalid tag')
@@ -37,6 +38,8 @@ def main():
                    '--hle-resources', '1', '--hle-buffers', args.mode,
                    '--hz', '60', '--scale', '3', '--seconds', str(args.seconds),
                    '--start', str(args.start), '--shots', '5']
+        if args.texture_state_verify:
+            command.append('--texture-state-verify')
         print(f'Testing {name} ({MAPS[name][0]})', flush=True)
         with (out / f'{name}-runner.log').open('w', encoding='utf-8') as log:
             completed = subprocess.run(command, cwd=root, stdout=log, stderr=log)
@@ -50,6 +53,7 @@ def main():
             warnings.append(f'FPS fell below functional threshold {args.minimum_fps}')
         row = dict(map=name, scene=MAPS[name][0], fps=fps,
                    buffers=report.get('hle_buffers'), warnings=warnings,
+                   texture_state=report.get('texture_state'),
                    executable_sha256=report.get('configuration', {}).get('executable_sha256'),
                    report=str(report_file))
         rows.append(row)

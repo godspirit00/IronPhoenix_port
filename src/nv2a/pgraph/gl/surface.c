@@ -360,6 +360,7 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
     assert(texture_shape->color_format < ARRAY_SIZE(kelvin_color_format_gl_map));
 
     nv2a_profile_inc_counter(NV2A_PROF_SURF_TO_TEX);
+    pgraph_gl_invalidate_texture_bindings(r);
 
     if (!surface_to_texture_can_fastpath(surface, texture_shape)) {
         texture->copy_internal_format = 0; /* Fallback replaces texture storage. */
@@ -379,6 +380,7 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
     glTexParameteri(texture->gl_target, GL_TEXTURE_BASE_LEVEL, 0);
     glTexParameteri(texture->gl_target, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(texture->gl_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    texture->min_filter = UINT32_MAX; // apply_texture_parameters must restore guest filtering.
     if (no_fast_copy || texture->copy_width != width || texture->copy_height != height ||
         texture->copy_internal_format != f->gl_internal_format) {
         glTexImage2D(texture->gl_target, 0, f->gl_internal_format, width, height, 0,
@@ -1639,6 +1641,7 @@ static void update_surface_part(NV2AState *d, bool upload, bool color)
                 }
             }
             glGenTextures(1, &entry.gl_buffer);
+            pgraph_gl_invalidate_texture_bindings(r);
             glBindTexture(GL_TEXTURE_2D, entry.gl_buffer);
             NV2A_GL_DLABEL(GL_TEXTURE, entry.gl_buffer,
                            "%s format: %0X, width: %d, height: %d "

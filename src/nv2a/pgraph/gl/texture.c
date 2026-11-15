@@ -27,8 +27,88 @@
 #include "debug.h"
 #include "renderer.h"
 
-static TextureBinding* generate_texture(const TextureShape s, const uint8_t *texture_data, const uint8_t *palette_data);
-static void texture_binding_destroy(gpointer data);
+static TextureBinding* generate_texture(PGRAPHGLState *r, const TextureShape s, const uint8_t *texture_data, const uint8_t *palette_data);
+static void texture_binding_destroy(PGRAPHGLState *r, TextureBinding *binding);
+
+void pgraph_gl_invalidate_texture_bindings(PGRAPHGLState *r)
+{
+    nv_texture_binding_invalidate(&r->texture_binding_shadow);
+    ++r->texture_state_stats.invalidations;
+}
+
+static void select_texture_stage(PGRAPHGLState *r, unsigned stage)
+{
+    if (nv_texture_select(&r->texture_binding_shadow, stage)) {
+        glActiveTexture(GL_TEXTURE0 + stage);
+        ++r->texture_state_stats.active_calls;
+    }
+}
+
+static unsigned texture_target_index(GLenum target)
+{
+    switch (target) {
+    case GL_TEXTURE_CUBE_MAP: return 0;
+    case GL_TEXTURE_1D: return 1;
+    case GL_TEXTURE_2D: return 2;
+    case GL_TEXTURE_3D: return 3;
+    default: abort();
+    }
+}
+
+static void bind_guest_texture(PGRAPHGLState *r, unsigned stage, GLenum target, GLuint object)
+{
+    if (r->no_fast_texture_state || nv_texture_bind(&r->texture_binding_shadow,
+            stage, texture_target_index(target), object)) {
+        if (!r->no_fast_texture_state) select_texture_stage(r, stage);
+        glBindTexture(target, object);
+        ++r->texture_state_stats.bind_calls;
+    } else {
+        ++r->texture_state_stats.bind_skips;
+    }
+}
+
+static void verify_texture_bindings(PGRAPHGLState *r)
+{
+    if (!r->verify_texture_state || r->no_fast_texture_state ||
+        (++r->texture_state_stats.draws % 257)) return;
+    static const GLenum queries[4] = {GL_TEXTURE_BINDING_CUBE_MAP,
+        GL_TEXTURE_BINDING_1D, GL_TEXTURE_BINDING_2D, GL_TEXTURE_BINDING_3D};
+    GLint active;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+    if (r->texture_binding_shadow.active_valid &&
+        active != GL_TEXTURE0 + r->texture_binding_shadow.active) {
+        nv2a_log("Texture state MISMATCH: active stage"); abort();
+    }
+    for (unsigned stage = 0; stage < 4; ++stage) {
+        glActiveTexture(GL_TEXTURE0 + stage);
+        for (unsigned target = 0; target < 4; ++target) {
+            if (!(r->texture_binding_shadow.valid & (1u << (stage * 4 + target)))) continue;
+            GLint object;
+            glGetIntegerv(queries[target], &object);
+            if ((GLuint)object != r->texture_binding_shadow.objects[stage][target]) {
+                nv2a_log("Texture state MISMATCH: stage %u target %u expected %u got %u",
+                    stage, target, r->texture_binding_shadow.objects[stage][target], (unsigned)object);
+                abort();
+            }
+            ++r->texture_state_stats.checks;
+        }
+    }
+    glActiveTexture(active);
+}
+
+static void report_texture_state(PGRAPHState *pg, PGRAPHGLState *r)
+{
+    if (pg->frame_time % 120 || r->texture_state_stats.report_frame == pg->frame_time) return;
+    r->texture_state_stats.report_frame = pg->frame_time;
+    nv2a_log("Texture state: active_calls %llu bind_calls %llu bind_skips %llu aniso_calls %llu aniso_skips %llu invalidations %llu checks %llu",
+        (unsigned long long)r->texture_state_stats.active_calls,
+        (unsigned long long)r->texture_state_stats.bind_calls,
+        (unsigned long long)r->texture_state_stats.bind_skips,
+        (unsigned long long)r->texture_state_stats.aniso_calls,
+        (unsigned long long)r->texture_state_stats.aniso_skips,
+        (unsigned long long)r->texture_state_stats.invalidations,
+        (unsigned long long)r->texture_state_stats.checks);
+}
 
 struct pgraph_texture_possibly_dirty_struct {
     hwaddr addr, end;
@@ -184,8 +264,20 @@ static void apply_texture_parameters(PGRAPHGLState *r,
     }
 
     if (r->supported_extensions.texture_filter_anisotropic) {
-        glTexParameterf(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                        max_anisotropy);
+        if (r->no_fast_texture_state || binding->max_anisotropy != max_anisotropy) {
+            glTexParameterf(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+            binding->max_anisotropy = max_anisotropy;
+            ++r->texture_state_stats.aniso_calls;
+        } else ++r->texture_state_stats.aniso_skips;
+        if (r->verify_texture_state && (r->texture_state_stats.aniso_skips % 4096 == 0)) {
+            GLfloat actual;
+            glGetTexParameterfv(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, &actual);
+            if (actual != (GLfloat)max_anisotropy) {
+                nv2a_log("Texture state MISMATCH: anisotropy expected %u got %f", max_anisotropy, actual);
+                abort();
+            }
+            ++r->texture_state_stats.checks;
+        }
     }
 
     if (!is_bordered && needs_border_color) {
@@ -276,14 +368,18 @@ void pgraph_gl_bind_textures(NV2AState *d)
         bool enabled = pgraph_is_texture_enabled(pg, i);
         /* FIXME: What happens if texture is disabled but stage is active? */
 
-        glActiveTexture(GL_TEXTURE0 + i);
+        if (r->no_fast_texture_state) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            ++r->texture_state_stats.active_calls;
+        }
         if (!enabled) {
-            glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-            glBindTexture(GL_TEXTURE_1D, 0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glBindTexture(GL_TEXTURE_3D, 0);
+            bind_guest_texture(r, i, GL_TEXTURE_CUBE_MAP, 0);
+            bind_guest_texture(r, i, GL_TEXTURE_1D, 0);
+            bind_guest_texture(r, i, GL_TEXTURE_2D, 0);
+            bind_guest_texture(r, i, GL_TEXTURE_3D, 0);
             continue;
         }
+        if (!r->no_fast_texture_state) select_texture_stage(r, i);
 
         uint32_t filter = pgraph_reg_r(pg, NV_PGRAPH_TEXFILTER0 + i*4);
         uint32_t address = pgraph_reg_r(pg, NV_PGRAPH_TEXADDRESS0 + i*4);
@@ -336,7 +432,7 @@ void pgraph_gl_bind_textures(NV2AState *d)
             }
 
             if (reusable) {
-                glBindTexture(r->texture_binding[i]->gl_target,
+                bind_guest_texture(r, i, r->texture_binding[i]->gl_target,
                               r->texture_binding[i]->gl_texture);
                 apply_texture_parameters(r,
                                          r->texture_binding[i],
@@ -422,13 +518,13 @@ void pgraph_gl_bind_textures(NV2AState *d)
                             && possibly_dirty
                             && (key_out->binding->data_hash != tex_data_hash);
         if (must_destroy) {
-            texture_binding_destroy(key_out->binding);
+            texture_binding_destroy(r, key_out->binding);
             key_out->binding = NULL;
         }
 
         if (key_out->binding == NULL) {
             // Must create the texture
-            key_out->binding = generate_texture(state, texture_data, palette_data);
+            key_out->binding = generate_texture(r, state, texture_data, palette_data);
             key_out->binding->data_hash = tex_data_hash;
             key_out->binding->scale = 1;
             if (!surf_to_tex) {
@@ -436,7 +532,7 @@ void pgraph_gl_bind_textures(NV2AState *d)
             }
         } else {
             // Saved an upload! Reuse existing texture in graphics memory.
-            glBindTexture(key_out->binding->gl_target,
+            bind_guest_texture(r, i, key_out->binding->gl_target,
                           key_out->binding->gl_texture);
         }
 
@@ -453,6 +549,7 @@ void pgraph_gl_bind_textures(NV2AState *d)
             binding->scale = pg->surface_scale_factor;
         }
 
+        if (!r->no_fast_texture_state) bind_guest_texture(r, i, binding->gl_target, binding->gl_texture);
         apply_texture_parameters(r,
                                  binding,
                                  &kelvin_color_format_info_map[state.color_format],
@@ -465,13 +562,15 @@ void pgraph_gl_bind_textures(NV2AState *d)
 
         if (r->texture_binding[i]) {
             if (r->texture_binding[i]->gl_target != binding->gl_target) {
-                glBindTexture(r->texture_binding[i]->gl_target, 0);
+                bind_guest_texture(r, i, r->texture_binding[i]->gl_target, 0);
             }
-            texture_binding_destroy(r->texture_binding[i]);
+            texture_binding_destroy(r, r->texture_binding[i]);
         }
         r->texture_binding[i] = binding;
         pg->texture_dirty[i] = false;
     }
+    verify_texture_bindings(r);
+    report_texture_state(pg, r);
     NV2A_GL_DGROUP_END();
 }
 
@@ -708,7 +807,7 @@ static void upload_gl_texture(GLenum gl_target,
     }
 }
 
-static TextureBinding* generate_texture(const TextureShape s,
+static TextureBinding* generate_texture(PGRAPHGLState *r, const TextureShape s,
                                         const uint8_t *texture_data,
                                         const uint8_t *palette_data)
 {
@@ -740,6 +839,7 @@ static TextureBinding* generate_texture(const TextureShape s,
         }
     }
 
+    pgraph_gl_invalidate_texture_bindings(r);
     glBindTexture(gl_target, gl_texture);
 
     NV2A_GL_DLABEL(GL_TEXTURE, gl_texture,
@@ -822,18 +922,19 @@ static TextureBinding* generate_texture(const TextureShape s,
     ret->addru = 0xFFFFFFFF;
     ret->addrv = 0xFFFFFFFF;
     ret->addrp = 0xFFFFFFFF;
+    ret->max_anisotropy = UINT32_MAX;
     ret->border_color_set = false;
     ret->copy_width = ret->copy_height = 0;
     ret->copy_internal_format = 0;
     return ret;
 }
 
-static void texture_binding_destroy(gpointer data)
+static void texture_binding_destroy(PGRAPHGLState *r, TextureBinding *binding)
 {
-    TextureBinding *binding = (TextureBinding *)data;
     assert(binding->refcnt > 0);
     binding->refcnt--;
     if (binding->refcnt == 0) {
+        pgraph_gl_invalidate_texture_bindings(r);
         glDeleteTextures(1, &binding->gl_texture);
         g_free(binding);
     }
@@ -853,7 +954,7 @@ static void texture_cache_entry_post_evict(Lru *lru, LruNode *node)
 {
     TextureLruNode *tnode = container_of(node, TextureLruNode, node);
     if (tnode->binding) {
-        texture_binding_destroy(tnode->binding);
+        texture_binding_destroy(container_of(lru, PGRAPHGLState, texture_cache), tnode->binding);
         tnode->binding = NULL;
         tnode->possibly_dirty = false;
     }
@@ -871,6 +972,9 @@ void pgraph_gl_init_textures(NV2AState *d)
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
+    r->no_fast_texture_state = getenv("XB_NO_FAST_TEXTURE_STATE") != NULL;
+    r->verify_texture_state = getenv("XB_TEXTURE_STATE_VERIFY") != NULL || nv2a_gl_debug();
+    nv2a_log("Texture state mode: %s", r->no_fast_texture_state ? "off" : r->verify_texture_state ? "verify" : "1");
     const size_t texture_cache_size = 512;
     lru_init(&r->texture_cache);
     r->texture_cache_entries = malloc(texture_cache_size * sizeof(TextureLruNode));
