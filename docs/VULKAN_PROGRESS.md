@@ -1,6 +1,10 @@
 # Vulkan implementation checkpoint
 
 User authorized switching to Vulkan after the OpenGL optimization passes.
+Follow-up (2026-11-15): the reported sustained slowdown relative to GL has been
+reproduced. See [RENDERER_INVESTIGATION.md](RENDERER_INVESTIGATION.md) for the
+CPU/wait timings, native-resolution probes and high-level D3D8 assessment.
+Use OpenGL as the ordinary-play baseline while Vulkan remains experimental.
 
 ## Source and build
 

@@ -105,13 +105,53 @@ Combat/draw complexity differs, so the FPS change is not an isolated resolution
 scaling measurement. This does not prove that either GPU work or CPU work alone
 explains every dropped frame.
 
-OpenGL scale-1 validation is in progress. Its run records FPS over 120–184
-seconds, then samples CPU stacks over 190–220 seconds, avoiding profiler
+OpenGL scale-1 validation completed: 33 / 46.03 / 60 FPS min/mean/max. Pusher
+wall time was 58.868 seconds in the 64-second measurement window; late-combat
+GPU utilization averaged 47.6% over 15 samples. This fight differed enough that
+scale 1 was slower than the scale-3 GL run: **do not interpret this as a negative
+resolution-scaling curve**. These are distinct evolving encounters. Both native
+resolution runs still missed 60 fps, with substantial CPU-side work.
+
+The GL scale-1 run records FPS over 120–184 seconds, then samples CPU stacks
+over 190–220 seconds, avoiding profiler
 suspension overhead inside the FPS window. The runner now supports separate
 `--end` and `--profile START,SECONDS` options, preserving the profile with that
 run's artifacts. `symprof.py --profile PATH --exe PATH` can symbolize a saved
 profile against its exact binary. These diagnostic tools do not replace a
 future deterministic capture/replay workload.
+
+The sample collected 662 observations per thread in 30 seconds (much less than
+1 kHz due to the cost of enumerating/suspending many threads). The worker observed
+in pgraph/driver calls (TID 2784) had 185 unnamed NVIDIA DLL observations plus
+31 under the nearest exported `DrvPresentBuffers` symbol, 139 condition-wait
+observations, 30 in `ZwGetWriteWatch` and 31 in `memcmp`. These are instruction
+locations/nearest symbols, not precise call-stack attribution. The thread
+observed in Xbox draw/query routines (39704) spent 532/662 samples in
+`ZwWaitForMultipleObjects`; this does not identify the particular waited object.
+The APU also does meaningful work, so graphics replacement does not eliminate
+all non-game overhead. Naive stack scanning can mistake data for return addresses;
+do not use its guessed callers (such as data address 0x2391a0) as proof.
+
+Profile artifacts: `scratch/perf/investigate-gl-scale1/{profile.txt,symbolized-profile.txt}`.
+Exact measured binary saved at `scratch/perf/investigation-renderers.exe`.
+Host CPU: AMD Ryzen 5 3600; GPU: RTX 2070. Other target machines remain untested.
+
+## Conclusion and next milestone
+
+The reported Vulkan regression is reproduced. It retains expensive surface
+alias download/upload and synchronous buffer-recycling paths that GL avoids.
+Both backends also pay significant per-draw driver/state/resource tracking costs.
+This does not establish an RTX 2070 hardware ceiling or predict target-device
+FPS; lower-GPU performance depends on CPU, resolution, drivers and the frontend.
+
+Keep OpenGL as the ordinary-play baseline. The concrete low-level Vulkan fixes
+are resource/alias reuse and less frequent blocking submission, with safe
+in-flight lifetimes; simply removing waits is incorrect. A bounded high-level
+D3D8 prototype is a justified architectural experiment to bypass command-queue
+and ownership tracking costs. It is not yet proven necessary or sufficient for
+firm 60 fps. Require image/ordering correctness and measured combat throughput
+before committing to a full migration. No high-level renderer was implemented
+by this investigation, and no performance fix is claimed for the diagnostic build.
 
 ## Proposed high-level architecture
 

@@ -1,6 +1,12 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Renderer investigation (2026-11-15): user-reported Vulkan regression reproduced
+in Buddha Cave. CPU timing, resolution probes and a post-window stack sample
+are recorded in [docs/RENDERER_INVESTIGATION.md](docs/RENDERER_INVESTIGATION.md).
+OpenGL remains the ordinary-play baseline. A high-level D3D8 frontend is assessed
+as a justified prototype, not a completed renderer or a promised 60 fps solution.
+
 Vulkan continuation (2026-11-14): a separately selectable Vulkan backend now
 builds and runs a full scripted match on RTX 2070. Reproduction, measurements,
 remaining feature gaps and next steps are in [docs/VULKAN_PROGRESS.md](docs/VULKAN_PROGRESS.md).
