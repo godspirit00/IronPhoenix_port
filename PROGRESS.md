@@ -4,8 +4,12 @@
 Multi-map regression investigation (2026-11-15): the user's Yama Hall/Summoning
 Altar 1 fps report revealed owned-buffer cache thrashing (55 GB uploads and
 43,008 evictions). Capacity buckets, recent-frame protection and per-frame work
-budgets now fall back to the existing vertex path instead of churning. Expanded
-map/transition validation is underway; see
+budgets now fall back to the existing vertex path instead of churning. All 14
+available arena scenes now have runtime coverage: an 11-map continuous session
+plus mode-specific checks. The reported maps recovered without recurrence of
+1 fps; normal-session windows recorded Yama Hall 51--60 and Summoning Altar
+45--60 fps. Firm 60 remains unmet, with other-map dips recorded explicitly.
+Both builds, 28 Python tests and three native tests pass; progress is in
 [docs/MULTIMAP_PROGRESS.md](docs/MULTIMAP_PROGRESS.md). The earlier one-map
 checkpoint below must not be treated as broad map validation.
 

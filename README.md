@@ -55,6 +55,12 @@ per-draw content checks. It has passed a full Buddha Cave GPU-readback run but
 does not establish a speedup or firm 60 fps. Existing HLE launchers keep buffers
 off. See [buffer ownership progress](docs/HLE_BUFFER_PROGRESS.md).
 
+The latest buffer build fixes severe cache thrashing reported on Yama Hall and
+Summoning Altar. All 14 available arena scenes have now been exercised, including
+an 11-map continuous session. Firm 60 remains unfinished; see the exact coverage,
+remaining dips, and reusable regression tools in
+[multi-map progress](docs/MULTIMAP_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See

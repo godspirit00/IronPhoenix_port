@@ -1,5 +1,9 @@
 # GPU-owned vertex-range checkpoint (2026-11-15)
 
+Historical checkpoint, superseded by the cache-thrashing fix and 14-arena scene
+validation in [MULTIMAP_PROGRESS.md](MULTIMAP_PROGRESS.md). Binary hashes and
+one-map results below describe the earlier candidate, not the current build.
+
 This experiment is opt-in and OpenGL-only. The ordinary renderer remains the
 baseline. It is a bounded resource step within the hybrid frontend, not a complete
 D3D8 replacement or an established speed improvement.
