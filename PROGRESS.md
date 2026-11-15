@@ -1,6 +1,13 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Resource/state checkpoint (2026-11-15): observed resource identity revisions and
+owned vertex-input deltas are implemented. Native preparation retains SDK general
+state processing and replaces vertex-input command generation on tested draws;
+legacy resource allocation/content coherence is still active. See
+[docs/HLE_RESOURCE_PROGRESS.md](docs/HLE_RESOURCE_PROGRESS.md). No speedup or
+firm-60 achievement is established; `run-hle-resources.cmd` is independently opt-in.
+
 Indexed HLE checkpoint (2026-11-15): runtime audit found heavy direct indexed
 coverage in Buddha Cave. Owned indexed packets now bypass guest index-payload
 generation/decoding, with 3.2 million original-stream comparisons matched and

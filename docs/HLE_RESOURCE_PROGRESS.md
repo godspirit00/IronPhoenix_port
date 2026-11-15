@@ -47,7 +47,7 @@ owned-resource graph. Hook counts are entry hits, not unique resource changes.
   transient views missed by the fast-only audit. The latest native run observed
   134,586 retired identities, 761 live headers and no evictions.
 
-## Next work
+## Expansion plan (implemented below)
 
 Expand native vertex-input preparation while retaining the SDK's general
 render/texture/shader preparation. Preserve its entry dirty flags and post-general
@@ -77,9 +77,44 @@ not exercised by this valid-declaration run.
 The exact expanded binary is preserved as
 `scratch/perf/hle-resource-state-expanded.exe`, SHA256
 `8dae5137a1f092b0505946da334f86323d6302b47c6b4e292b754fce340078b1`.
-Same-build original-state reference is running in
-`scratch/perf/resources-expanded-reference/`; Vulkan gameplay and ordinary-build
-checks remain pending. The resource frontend stays independently opt-in.
+Same-build original-state reference is preserved in
+`scratch/perf/resources-expanded-reference/`. The resource frontend stays
+independently opt-in.
+
+The same-build reference has now completed: 2,393,839 nonempty patches matched
+original GPU state, with no reported failures or registry evictions. Periodic
+FPS min/mean/max was 50 / 57.59 / 60 versus native 35 / 50.97 / 60. The reference
+processed 2,269,311 draw callbacks versus native 1,795,116, with different
+fight/camera/material work. This does **not establish a performance improvement**;
+do not recommend the resource mode as a speed fix. Reference mode includes the
+same resource audit/snapshot construction plus GPU state checks. Both modes
+retain general state processing and backend resource/content tracking.
+
+`run-hle-resources.cmd` is the explicit native vertex-state experiment.
+`run-hle.cmd` and `run-hle-up.cmd` disable resource mode for their existing scopes.
+Vulkan full-route validation completed in `resources-expanded-vulkan/`:
+2,061,470 native preparations and 1,669,410 nonempty patches applied, with zero
+delegated preparations, registry evictions or reported runtime failures. FPS
+min/mean/max: 22 / 29.53 / 59 in that different encounter; it is not a controlled
+GL/Vulkan ratio. Captured GL and Vulkan combat geometry, lighting and HUD were
+inspected. This is limited visual validation, not pixel-for-pixel equivalence.
+
+Both Vulkan-enabled and GL-only builds pass. The exact tested Vulkan-enabled
+binary is restored afterward, retaining both selectable renderers. All benchmark
+processes have ended. Existing `.claude/` worktrees were left untouched.
+20 Python tests and the native resource/state test (including fallback flag
+construction) pass. No generated shader code changed, so cache keys are unchanged.
+
+## Next resource boundary
+
+Vertex-input preparation now has useful coverage, but backend buffer/texture
+allocations, RAM dirtiness, upload decisions and surface synchronization remain
+legacy. Next, model backing allocations and parent/view aliases, detect CPU
+content changes (including direct writes), and retain in-flight resource versions
+until GPU completion. Only then can resource IDs safely select owned GPU objects
+and replace per-draw guest-RAM tracking. Header identity alone is insufficient.
+Keep deterministic workloads/frame-time measurement on the validation backlog;
+these evolving fights cannot establish small performance differences reliably.
 
 The first restricted candidate is preserved at
 `scratch/perf/hle-resource-state-prototype.exe` (SHA256

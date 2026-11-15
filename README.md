@@ -46,6 +46,10 @@ indexed API used heavily in Buddha Cave. Both bridges are experimental and still
 share the existing state/resource frontend. See
 [indexed coverage and measurements](docs/HLE_INDEXED_PROGRESS.md).
 
+`run-hle-resources.cmd` additionally tests resource identity tracking and native
+vertex-input state preparation. It has not demonstrated a speedup; the existing
+HLE launchers keep this mode off. See [resource-state progress](docs/HLE_RESOURCE_PROGRESS.md).
+
 Experimental Vulkan builds support `--renderer vulkan` (OpenGL remains available
 with `--renderer opengl`). In this source checkout, `run-vulkan.cmd` launches the
 Vulkan build with the extracted game at 3x scale and 60 Hz. See
