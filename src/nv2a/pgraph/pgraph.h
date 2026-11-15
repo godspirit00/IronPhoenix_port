@@ -228,6 +228,10 @@ typedef struct PGRAPHState {
 
     unsigned int inline_elements_length;
     uint32_t inline_elements[NV2A_MAX_BATCH_LENGTH];
+    // Provenance only for HLE vertex input. Legacy input writes invalidate it.
+    uint64_t hle_vertex_resources[16];
+    uint32_t hle_vertex_offsets[16];
+    bool hle_indexed_draw_active;
 
     unsigned int inline_buffer_length;
 

@@ -433,6 +433,10 @@ static DWORD WINAPI vblank_thread(void *arg)
 /* ---------------------------------------------------------------- dirty tracking */
 #define VRAM_PAGES (128u * 1024 * 1024 / 4096)
 static uint8_t g_dirty[DIRTY_MEMORY_NUM][VRAM_PAGES];
+#include "range_versions.h"
+static uint64_t g_content_pages[VRAM_PAGES];
+static NvRangeVersions g_content_versions = {0, g_content_pages, VRAM_PAGES};
+static bool g_content_versions_enabled;
 static SRWLOCK g_dirty_lock = SRWLOCK_INIT;
 static void *g_watch_buf[VRAM_PAGES];
 
@@ -455,6 +459,7 @@ static void sync_run(uint32_t first, uint32_t end_page)
                       &gran) == 0) {
         for (ULONG_PTR i = 0; i < count; i++) {
             uint32_t page = (uint32_t)(((uint8_t *)g_watch_buf[i] - g_vram.ptr) >> 12);
+            if (g_content_versions_enabled) nv_range_mark(&g_content_versions, page, page + 1);
 
             for (int c = 0; c < DIRTY_MEMORY_NUM; c++) {
                 g_dirty[c][page] = 1;
@@ -521,7 +526,25 @@ void nv2a_dirty_discard(hwaddr addr, hwaddr size)
     InterlockedIncrement(&g_ww_discard_calls);
     AcquireSRWLockExclusive(&g_dirty_lock); /* g_watch_buf is shared */
     GetWriteWatch(WRITE_WATCH_FLAG_RESET, (void *)start, end - start, g_watch_buf, &count, &gran);
+    if (g_content_versions_enabled) nv_range_mark(&g_content_versions, addr >> 12, (addr + size + 0xfff) >> 12);
     ReleaseSRWLockExclusive(&g_dirty_lock);
+}
+
+void nv2a_hle_versions_enable(void)
+{
+    AcquireSRWLockExclusive(&g_dirty_lock);
+    g_content_versions_enabled = true;
+    ReleaseSRWLockExclusive(&g_dirty_lock);
+}
+
+uint64_t nv2a_hle_range_version(hwaddr addr, hwaddr size)
+{
+    if (!size || addr >= g_vram.size || size > g_vram.size - addr) return 0;
+    nv2a_dirty_sync_range(addr, size);
+    AcquireSRWLockShared(&g_dirty_lock);
+    uint64_t version = nv_range_version(&g_content_versions, addr >> 12, (addr + size + 0xfff) >> 12);
+    ReleaseSRWLockShared(&g_dirty_lock);
+    return version;
 }
 
 bool memory_region_test_and_clear_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size, unsigned client)
@@ -585,6 +608,7 @@ void memory_region_set_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size)
 
     uint32_t first = (uint32_t)(addr >> 12), last = (uint32_t)((addr + size - 1) >> 12);
     AcquireSRWLockExclusive(&g_dirty_lock);
+    if (g_content_versions_enabled) nv_range_mark(&g_content_versions, first, (size_t)last + 1);
     for (uint32_t p = first; p <= last && p < VRAM_PAGES; p++) {
         for (int c = 0; c < DIRTY_MEMORY_NUM; c++) {
             g_dirty[c][p] = 1;

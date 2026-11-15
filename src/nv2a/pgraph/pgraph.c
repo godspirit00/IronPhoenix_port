@@ -2529,12 +2529,14 @@ static void pgraph_set_vertex_format(PGRAPHState *pg, int slot, uint32_t paramet
 
 DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_FORMAT)
 {
+    pg->hle_vertex_resources[(method - NV097_SET_VERTEX_DATA_ARRAY_FORMAT) / 4] = 0;
     pgraph_set_vertex_format(pg, (method - NV097_SET_VERTEX_DATA_ARRAY_FORMAT) / 4, parameter);
 }
 
 DEF_METHOD_INC(NV097, SET_VERTEX_DATA_ARRAY_OFFSET)
 {
     int slot = (method - NV097_SET_VERTEX_DATA_ARRAY_OFFSET) / 4;
+    pg->hle_vertex_resources[slot] = 0;
 
     pg->vertex_attributes[slot].dma_select = parameter & 0x80000000;
     pg->vertex_attributes[slot].offset = parameter & 0x7fffffff;
@@ -2547,6 +2549,7 @@ bool nv2a_hle_vertex_patch(void *opaque, const HleVertexPatch *patch)
     for (unsigned i = 0; i < 16; ++i) {
         VertexAttribute *attr = &pg->vertex_attributes[i];
         if (patch->formats_mask & (1u << i)) {
+            pg->hle_vertex_resources[i] = 0;
             if (patch->mode == 2) pgraph_set_vertex_format(pg, i, patch->formats[i]);
             else if ((attr->format | (attr->count << 4) | (attr->stride << 8)) != patch->formats[i]) return false;
         }
@@ -2555,6 +2558,8 @@ bool nv2a_hle_vertex_patch(void *opaque, const HleVertexPatch *patch)
                 attr->dma_select = patch->offsets[i] & 0x80000000u;
                 attr->offset = patch->offsets[i] & 0x7fffffffu;
             } else if ((attr->offset | (attr->dma_select ? 0x80000000u : 0)) != patch->offsets[i]) return false;
+            pg->hle_vertex_resources[i] = patch->resources[i];
+            pg->hle_vertex_offsets[i] = patch->offsets[i];
         }
     }
     return true;
@@ -2634,6 +2639,7 @@ static bool pgraph_hle_draw(void *opaque, uint32_t primitive,
         !count || count > ARRAY_SIZE(pg->inline_array)) return false;
     pg->primitive_mode = primitive;
     pgraph_reset_inline_buffers(pg);
+    pg->hle_indexed_draw_active = indexed;
     pg->renderer->ops.draw_begin(d);
     if (indexed) {
         memcpy(pg->inline_elements, words, count * sizeof(*words));
@@ -2644,6 +2650,7 @@ static bool pgraph_hle_draw(void *opaque, uint32_t primitive,
     }
     nv2a_profile_inc_counter(NV2A_PROF_BEGIN_ENDS);
     pg->renderer->ops.draw_end(d);
+    pg->hle_indexed_draw_active = false;
     pgraph_reset_inline_buffers(pg);
     pg->primitive_mode = PRIM_TYPE_INVALID;
     return true;

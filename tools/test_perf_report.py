@@ -6,6 +6,16 @@ from perf_report import summarize
 
 
 class PerfReportTests(unittest.TestCase):
+    def test_owned_buffer_verification_preserves_large_byte_counts(self):
+        result = self.report(
+            "[ 1 100] HLE buffers mode: verify\n"
+            "[ 1 1100] perf: 60 fps\n"
+            "[ 1 2100] HLE buffers: binds 900 hits 800 uploads 100 bytes 4294967296 checks 900 readbacks 32 evictions 2 fallback 3 resident 65536\n")
+        self.assertEqual(result["hle_buffers_mode"], "verify")
+        self.assertEqual(result["hle_buffers"]["bytes"], 4294967296)
+        self.assertEqual(result["hle_buffers"]["checks"], 900)
+        self.assertEqual(result["hle_buffers"]["readbacks"], 32)
+
     def test_resource_modes_require_distinct_checked_and_applied_counts(self):
         result = self.report(
             "[ 1 100] HLE resources mode: 1\n"

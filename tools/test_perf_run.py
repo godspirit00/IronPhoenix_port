@@ -6,6 +6,11 @@ from pathlib import Path
 
 
 class PerfRunArgumentsTests(unittest.TestCase):
+    def test_owned_buffers_require_supported_renderer_and_frontend(self):
+        self.assertIn('owned buffers require', self.reject('--hle-buffers', '1'))
+        self.assertIn('owned buffers require', self.reject('--hle-buffers', 'verify', '--renderer', 'vulkan', '--hle-indexed', '1', '--hle-resources', '1'))
+        self.assertIn('owned buffers require', self.reject('--hle-buffers', '1', '--hle-indexed', '1', '--hle-resources', '1', '--no-fast-vertex'))
+
     def test_resource_state_requires_indexed_submission(self):
         self.assertIn('require an active indexed bridge', self.reject('--hle-resources', '1'))
     def reject(self, *args):

@@ -26,6 +26,8 @@ def summarize(path, start, end):
     hle_resources_audit = None
     hle_vertex_state = None
     hle_resource_identities = None
+    hle_buffers_mode = None
+    hle_buffers = None
     exit_at = None
     copy_checks = 0
     validation_failed = False
@@ -56,6 +58,11 @@ def summarize(path, start, end):
             hle_indexed_mode = line.split("HLE indexed mode:", 1)[1].strip()
         if "HLE resources mode:" in line:
             hle_resources_mode = line.split("HLE resources mode:", 1)[1].strip()
+        if "HLE buffers mode:" in line:
+            hle_buffers_mode = line.split("HLE buffers mode:", 1)[1].strip()
+        buffers = re.search(r"HLE buffers: binds (\d+) hits (\d+) uploads (\d+) bytes (\d+) checks (\d+) readbacks (\d+) evictions (\d+) fallback (\d+) resident (\d+)", line)
+        if buffers:
+            hle_buffers = dict(zip(("binds", "hits", "uploads", "bytes", "checks", "readbacks", "evictions", "fallback", "resident"), map(int, buffers.groups())))
         resource = re.search(r"HLE resources audit: register (\d+) free (\d+) streams (\d+) textures (\d+) targets (\d+) locks (\d+)", line)
         if resource:
             hle_resources_audit = dict(zip(("register", "free", "streams", "textures", "targets", "locks"), map(int, resource.groups())))
@@ -112,6 +119,7 @@ def summarize(path, start, end):
         "hle_indexed_packets": hle_indexed_packets,
         "hle_resources_mode": hle_resources_mode, "hle_resources_audit": hle_resources_audit,
         "hle_vertex_state": hle_vertex_state, "hle_resource_identities": hle_resource_identities,
+        "hle_buffers_mode": hle_buffers_mode, "hle_buffers": hle_buffers,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),

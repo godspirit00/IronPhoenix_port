@@ -301,6 +301,8 @@ bool memory_region_test_and_clear_dirty(MemoryRegion *mr, hwaddr addr, hwaddr si
 void memory_region_set_client_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size, unsigned client);
 void memory_region_set_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size);
 bool memory_region_get_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size, unsigned client);
+void nv2a_hle_versions_enable(void);
+uint64_t nv2a_hle_range_version(hwaddr addr, hwaddr size);
 
 typedef struct MemoryRegionOps {
     uint64_t (*read)(void *opaque, hwaddr addr, unsigned size);

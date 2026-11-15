@@ -1,6 +1,11 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Owned vertex-buffer experiment in progress (2026-11-15): bounded OpenGL GPU
+ranges now have independent physical-page content versions and fetched-byte
+verification. It remains opt-in pending runtime validation; see
+[docs/HLE_BUFFER_PROGRESS.md](docs/HLE_BUFFER_PROGRESS.md).
+
 Resource/state checkpoint (2026-11-15): observed resource identity revisions and
 owned vertex-input deltas are implemented. Native preparation retains SDK general
 state processing and replaces vertex-input command generation on tested draws;

@@ -39,6 +39,7 @@ def main():
     parser.add_argument("--hle-up", choices=("off", "verify", "1"), default="off")
     parser.add_argument("--hle-indexed", choices=("off", "observe", "verify", "1"), default="off")
     parser.add_argument("--hle-resources", choices=("off", "observe", "verify", "1"), default="off")
+    parser.add_argument("--hle-buffers", choices=("off", "verify", "1"), default="off")
     parser.add_argument("--dump-after", type=int, default=0)
     parser.add_argument("--profile", help="Optional sampling-profiler START,SECONDS; adds measurement overhead")
     parser.add_argument("--gl-debug", action="store_true")
@@ -56,6 +57,8 @@ def main():
             parser.error("sampling profile must finish before the run timeout")
     if args.hle_resources in ("verify", "1") and args.hle_indexed not in ("verify", "1"):
         parser.error("resource state snapshots require an active indexed bridge")
+    if args.hle_buffers != "off" and (args.renderer != "opengl" or args.hle_indexed != "1" or args.hle_resources not in ("verify", "1") or args.no_fast_vertex):
+        parser.error("owned buffers require OpenGL, native indexed packets, resource snapshots and fast vertex state")
     if not args.tag or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in args.tag):
         parser.error("tag must contain only letters, digits, '-' or '_'")
     out = root / "scratch/perf" / args.tag
@@ -67,6 +70,9 @@ def main():
     env.pop("XB_HLE_D3D8_UP", None)
     env.pop("XB_HLE_D3D8_INDEXED", None)
     env.pop("XB_HLE_D3D8_RESOURCES", None)
+    env.pop("XB_HLE_D3D8_BUFFERS", None)
+    if args.hle_buffers != "off":
+        env["XB_HLE_D3D8_BUFFERS"] = args.hle_buffers
     if args.hle_resources != "off":
         env["XB_HLE_D3D8_RESOURCES"] = args.hle_resources
     if args.hle_indexed != "off":
@@ -145,6 +151,11 @@ def main():
             report["warnings"].append("Requested HLE UP path was not verified as exercised in the log.")
     if not timed_out and proc.returncode:
         report["warnings"].append(f"Game exited with code {proc.returncode} before timeout.")
+    if args.hle_buffers != "off":
+        if report.get("hle_buffers_mode") != args.hle_buffers or not (report.get("hle_buffers") or {}).get("binds"):
+            report["warnings"].append("Requested owned buffer path was not verified as exercised in the log.")
+        if args.hle_buffers == "verify" and not (report.get("hle_buffers") or {}).get("checks"):
+            report["warnings"].append("Owned buffer verification was not exercised.")
     console_text = (out / "console.log").read_text(encoding="utf-8", errors="replace")
     if any(word in console_text for word in ("MISMATCH", "Assertion failed", "Assertion failure", "FATAL:")):
         report["warnings"].append("Runtime output contains a validation failure; inspect console.log.")
@@ -158,6 +169,7 @@ def main():
                                "hle_up": args.hle_up,
                                "hle_indexed": args.hle_indexed,
                                "hle_resources": args.hle_resources,
+                               "hle_buffers": args.hle_buffers,
                                "sampling_profile": args.profile,
                                "exclusive_script": True, "executable": str(exe)}
     report["configuration"]["executable_sha256"] = executable_hash

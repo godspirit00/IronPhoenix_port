@@ -1,5 +1,6 @@
 @echo off
 setlocal
+set "XB_HLE_D3D8_BUFFERS=off"
 set "XB_HLE_D3D8_UP=1"
 set "XB_HLE_D3D8_INDEXED=1"
 set "XB_HLE_D3D8_RESOURCES=off"

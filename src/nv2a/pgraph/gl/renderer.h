@@ -197,6 +197,7 @@ typedef struct PGRAPHGLState {
     GLuint gl_vertex_array;
     GLuint gl_inline_buffer[NV2A_VERTEXSHADER_ATTRIBUTES];
     bool no_fast_vertex;
+    struct HleBuffers *hle_buffers;
     struct {
         bool enable_valid, enabled, value_valid, pointer_valid;
         GLfloat value[4];
@@ -283,6 +284,11 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg);
 void pgraph_gl_init_draw_timing(PGRAPHGLState *r);
 void pgraph_gl_finalize_draw_timing(PGRAPHGLState *r);
 void pgraph_gl_attribute_enable(PGRAPHGLState *r, unsigned int index, bool enabled);
+void pgraph_gl_hle_buffers_init(NV2AState *d);
+void pgraph_gl_hle_buffers_finalize(PGRAPHGLState *r);
+void pgraph_gl_hle_buffers_begin(PGRAPHGLState *r);
+bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned max_element,
+                         hwaddr address, GLuint *buffer, hwaddr *offset);
 void pgraph_gl_attribute_value(PGRAPHGLState *r, unsigned int index, const GLfloat *value);
 void pgraph_gl_attribute_pointer(PGRAPHGLState *r, unsigned int index, GLuint buffer,
                                  GLint size, GLenum type, GLboolean normalized,
