@@ -55,7 +55,20 @@ prevent interpreting that as a controlled improvement over the earlier profile.
 The candidate is preserved at `scratch/perf/texture-state-prototype.exe`, SHA256
 `4d5a013d6495e022780e204430d9249529979aeaeefe367d576089bcb5741cea`.
 The current build has the same hash and contains both renderer backends.
-The 11-map continuous texture-state verifier is now running. A separate GL-only
+The 950-second continuous verifier completed all 11 deathmatch maps and ten
+transitions, with expected scene IDs active before each window, no reported
+mismatches and no catastrophic regression. It recorded 1,465,676 sampled GL state
+checks, 13,812,381 guest binding calls, 275,205,415 skipped binding requests,
+1,410 anisotropy calls and 43,489,628 skipped anisotropy writes. Screenshots from
+every map were inspected. The owned-buffer budgets still held: peak admission
+4,194,304, comparisons 9,373,636 and partial updates 34,416 bytes/frame.
+
+Artifacts: `scratch/perf/texture-state-journey-verify/`, including
+`map_journey.results.json`. These are GL state comparisons and limited visual
+checks, not pixel-for-pixel equivalence with the old renderer. Red Viper's Den
+will retain the previous entry/transport-area coverage limitation.
+
+A separate GL-only
 compile overlapped part of its first verification window; that window must not
 be used for performance comparisons. No compile overlaps the later normal-mode
 or same-executable reference measurements. Shader generation is unchanged;
