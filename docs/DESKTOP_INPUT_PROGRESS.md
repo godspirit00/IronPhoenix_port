@@ -33,6 +33,28 @@ and top dialogs also prevent capture.
 Both Vulkan-enabled and OpenGL-only builds compile. The new native
 `tools/test_desktop_input.cpp` passes context classification, held-key/focus
 gates, axis direction, radial clamp, idle reset, poll independence and clock
-wrap checks. All 30 existing Python tests pass. Live Yama Hall input and menu
-transition checks are in progress; do not claim physical mouse feel or Proton
-coverage from unit tests. Performance renderer code is unchanged.
+wrap checks. All 30 existing Python tests pass. A 141-second live Yama Hall run
+passed gameplay -> pause -> Settings -> pause -> gameplay. Read-only observations
+of the owned process confirmed app=50 throughout, active UI=110/150/160/150/110,
+and pending/top=0 at each checkpoint. Log: `scratch/input-menu-smoke.log`;
+reproduction helper: `scratch/input_menu_smoke.py` (uses normal scripted input,
+not exclusive input, and observes state without injecting desktop input).
+
+This session exposes no foreground desktop (GetForegroundWindow returns null).
+The scoped interactive helper aborted before injecting mouse/key input because
+the game could not become foreground. Physical raw mouse delivery, cursor
+release/recapture, camera feel, physical controller mixing and Proton therefore
+remain unverified. Check actual mouse look, all requested buttons, held Esc/Enter
+across pause/resume, Settings/back, Alt+Tab and Alt+Enter on an interactive PC.
+Unit coverage verifies focus/context latches, but does not replace these checks.
+
+The final build additionally blocks Return until release after Alt+Enter,
+including when Alt is released first. Both configurations rebuilt successfully
+after that change; the live menu run preceded this isolated shortcut adjustment.
+Performance renderer code is unchanged. No new FPS or cross-machine claims.
+
+Final executable: `build/ironphoenix.exe`, preserved as
+`scratch/desktop-input-checkpoint.exe`; SHA256:
+`aac4c23e522aab3ef5d318e39920fc0a7142700779f76c3e01cb24464581a4e0`.
+The live menu test used the earlier input build with SHA256
+`b005bd4030898c745298c19316bbe00b66a9fd4e08bbcb0d01429890f1cea784`.

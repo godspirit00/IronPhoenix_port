@@ -1,6 +1,15 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Desktop controls checkpoint (2026-11-15): gameplay-only mouse look and requested
+mouse/button/modifier mappings are implemented. Enter confirms menus; Esc backs
+out; either pauses gameplay. Held-key context/focus latches and an Alt+Enter guard
+prevent accidental second actions. Both builds, native input tests and 30 Python
+tests pass. A live Yama Hall run verified gameplay/pause/Settings/back/resume
+states. This session has no foreground desktop, so physical capture/camera feel
+and focus transitions still need interactive testing. Details, binary hash and
+resume checklist: [docs/DESKTOP_INPUT_PROGRESS.md](docs/DESKTOP_INPUT_PROGRESS.md).
+
 Host texture-state checkpoint (2026-11-15): actual GL stage/target bindings and
 per-object anisotropy now have a bounded state snapshot, driver verification and
 a kill switch. All 14 available arena scenes passed, including ten transitions

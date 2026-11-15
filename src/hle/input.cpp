@@ -205,7 +205,10 @@ static void read_pad(int port, X_XINPUT_GAMEPAD *g) {
         }
         DesktopContext context = input_context();
         if (g_window_focused.load()) {
-            if (enter.update(key(VK_RETURN) && !key(VK_MENU), context)) {
+            // Alt+Enter belongs to the window. Keep Return blocked until it is
+            // released, even if Alt is released first after toggling fullscreen.
+            if (key(VK_RETURN) && key(VK_MENU)) enter.disarm();
+            if (enter.update(key(VK_RETURN), context)) {
                 if (context != DesktopContext::Gameplay) g->bAnalogButtons[AB_A] = 255;
                 if (context != DesktopContext::Menu) g->wButtons |= XB_START;
             }
