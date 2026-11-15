@@ -528,6 +528,7 @@ static void update_shader_uniforms(PGRAPHState *pg)
 
 void pgraph_vk_bind_shaders(PGRAPHState *pg)
 {
+    PROF_SCOPE(PS_SHADERS);
     NV2A_VK_DGROUP_BEGIN("%s", __func__);
 
     PGRAPHVkState *r = pg->vk_renderer_state;

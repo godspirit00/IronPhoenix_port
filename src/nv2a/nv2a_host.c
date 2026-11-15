@@ -396,8 +396,9 @@ static DWORD WINAPI vblank_thread(void *arg)
             nv2a_log("%s | %s", vis, isr);
             if (g_ps_enabled) {
                 static const char *names[PS__COUNT] = {"draw_begin", "draw_end", "flush_draw", "clear", "surf_update", "blit",
-                                                       "textures", "shaders", "vtx_attrs", "pending", "reports", "sync", "PUSHER", "surf_memcheck", "surf_part", "surf_dl", "surf_ul", "surf_inval"};
-                char pb[1200];
+                                                       "textures", "shaders", "vtx_attrs", "pending", "reports", "sync", "PUSHER", "surf_memcheck", "surf_part", "surf_dl", "surf_ul", "surf_inval",
+                                                       "vk_finish", "vk_wait", "vk_aux_wait", "vk_present_wait"};
+                char pb[1800];
                 int pn = 0;
                 LARGE_INTEGER pf;
                 QueryPerformanceFrequency(&pf);

@@ -120,6 +120,7 @@ void pgraph_vk_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
                                       unsigned int inline_stride,
                                       unsigned int provoking_element)
 {
+    PROF_SCOPE(PS_VERTEX_ATTRS);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
@@ -275,6 +276,7 @@ void pgraph_vk_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
 
 void pgraph_vk_bind_vertex_attributes_inline(NV2AState *d)
 {
+    PROF_SCOPE(PS_VERTEX_ATTRS);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 

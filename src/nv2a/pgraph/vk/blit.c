@@ -28,6 +28,7 @@
 
 void pgraph_vk_image_blit(NV2AState *d)
 {
+    PROF_SCOPE(PS_BLIT);
     PGRAPHState *pg = &d->pgraph;
     ContextSurfaces2DState *context_surfaces = &pg->context_surfaces_2d;
     ImageBlitState *image_blit = &pg->image_blit;

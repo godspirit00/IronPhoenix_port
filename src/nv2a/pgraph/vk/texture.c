@@ -1424,6 +1424,7 @@ static void update_timestamps(PGRAPHVkState *r)
 
 void pgraph_vk_bind_textures(NV2AState *d)
 {
+    PROF_SCOPE(PS_TEXTURES);
     NV2A_VK_DGROUP_BEGIN("%s", __func__);
 
     PGRAPHState *pg = &d->pgraph;

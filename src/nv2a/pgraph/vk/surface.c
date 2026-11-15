@@ -469,6 +469,7 @@ static void download_surface_to_buffer(NV2AState *d, SurfaceBinding *surface,
 
 static void download_surface(NV2AState *d, SurfaceBinding *surface, bool force)
 {
+    PROF_SCOPE(PS_SURF_DL);
     if (!(surface->download_pending || force)) {
         return;
     }
@@ -622,6 +623,7 @@ static void unbind_surface(NV2AState *d, bool color)
 
 static void invalidate_surface(NV2AState *d, SurfaceBinding *surface)
 {
+    PROF_SCOPE(PS_SURF_INVAL);
     PGRAPHVkState *r = d->pgraph.vk_renderer_state;
 
     trace_nv2a_pgraph_surface_invalidated(surface->vram_addr);
@@ -936,6 +938,7 @@ void pgraph_vk_surface_download_if_dirty(NV2AState *d, SurfaceBinding *surface)
 void pgraph_vk_upload_surface_data(NV2AState *d, SurfaceBinding *surface,
                                    bool force)
 {
+    PROF_SCOPE(PS_SURF_UL);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
@@ -1383,6 +1386,7 @@ static void populate_surface_binding_target(NV2AState *d, bool color,
 
 static void update_surface_part(NV2AState *d, bool upload, bool color)
 {
+    PROF_SCOPE(PS_SURF_PART);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
@@ -1563,6 +1567,7 @@ static void update_surface_part(NV2AState *d, bool upload, bool color)
 void pgraph_vk_surface_update(NV2AState *d, bool upload, bool color_write,
                               bool zeta_write)
 {
+    PROF_SCOPE(PS_SURFACE_UPDATE);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 

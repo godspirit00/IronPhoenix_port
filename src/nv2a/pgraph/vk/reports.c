@@ -147,6 +147,7 @@ void pgraph_vk_process_pending_reports_internal(NV2AState *d)
 
 void pgraph_vk_process_pending_reports(NV2AState *d)
 {
+    PROF_SCOPE(PS_REPORTS);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 

@@ -101,7 +101,10 @@ void pgraph_vk_end_single_time_commands(PGRAPHState *pg, VkCommandBuffer cmd)
     };
     VK_CHECK(vkQueueSubmit(r->queue, 1, &submit_info, VK_NULL_HANDLE));
     nv2a_profile_inc_counter(NV2A_PROF_QUEUE_SUBMIT_AUX);
-    VK_CHECK(vkQueueWaitIdle(r->queue));
+    {
+        PROF_SCOPE(PS_VK_AUX_WAIT);
+        VK_CHECK(vkQueueWaitIdle(r->queue));
+    }
 
     r->in_aux_command_buffer = false;
 }

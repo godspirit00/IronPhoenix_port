@@ -12,6 +12,7 @@ void pgraph_vk_port_present_complete(void)
 }
 void pgraph_vk_port_wait_present(void)
 {
+    PROF_SCOPE(PS_VK_PRESENT_WAIT);
     if (!present_fence) return;
     GLenum status;
     do {

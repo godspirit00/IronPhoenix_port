@@ -24,6 +24,7 @@
 
 void pgraph_vk_draw_begin(NV2AState *d)
 {
+    PROF_SCOPE(PS_DRAW_BEGIN);
     PGRAPHState *pg = &d->pgraph;
 
     NV2A_VK_DPRINTF("NV097_SET_BEGIN_END: 0x%x", d->pgraph.primitive_mode);
@@ -1229,6 +1230,7 @@ const enum NV2A_PROF_COUNTERS_ENUM finish_reason_to_counter_enum[] = {
 
 void pgraph_vk_finish(PGRAPHState *pg, FinishReason finish_reason)
 {
+    PROF_SCOPE(PS_VK_FINISH);
     PGRAPHVkState *r = pg->vk_renderer_state;
 
     assert(!r->in_draw);
@@ -1294,8 +1296,11 @@ void pgraph_vk_finish(PGRAPHState *pg, FinishReason finish_reason)
             check_budget = true;
         }
 
-        VK_CHECK(vkWaitForFences(r->device, 1, &r->command_buffer_fence,
-                                 VK_TRUE, UINT64_MAX));
+        {
+            PROF_SCOPE(PS_VK_WAIT);
+            VK_CHECK(vkWaitForFences(r->device, 1, &r->command_buffer_fence,
+                                     VK_TRUE, UINT64_MAX));
+        }
 
         r->descriptor_set_index = 0;
         r->in_command_buffer = false;
@@ -1523,6 +1528,7 @@ static void end_draw(PGRAPHState *pg)
 
 void pgraph_vk_draw_end(NV2AState *d)
 {
+    PROF_SCOPE(PS_DRAW_END);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
@@ -1658,6 +1664,7 @@ static void sync_vertex_ram_buffer(PGRAPHState *pg)
 
 void pgraph_vk_clear_surface(NV2AState *d, uint32_t parameter)
 {
+    PROF_SCOPE(PS_CLEAR);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
@@ -2037,6 +2044,7 @@ static void copy_remapped_attributes_to_inline_buffer(PGRAPHState *pg,
 
 void pgraph_vk_flush_draw(NV2AState *d)
 {
+    PROF_SCOPE(PS_FLUSH_DRAW);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHVkState *r = pg->vk_renderer_state;
 
