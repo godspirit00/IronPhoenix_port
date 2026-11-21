@@ -445,7 +445,7 @@ void pgraph_gl_draw_begin(NV2AState *d)
             sizeof(GLuint) * r->gl_zpass_pixel_count_query_count);
 
         GLuint gl_query;
-        glGenQueries(1, &gl_query);
+        gl_query = pgraph_gl_query_alloc();
         r->gl_zpass_pixel_count_queries[
             r->gl_zpass_pixel_count_query_count - 1] = gl_query;
         glBeginQuery(GL_SAMPLES_PASSED, gl_query);

@@ -63,6 +63,58 @@ static bool exact_occlusion(void)
     return nv2a_occlusion_mode() != 0;
 }
 
+/* Query-object pool (port change). With NVIDIA's threaded driver, glGenQueries makes the
+ * calling thread wait for the driver's worker thread (~30 us each, ~180 per frame in heavy
+ * arenas). Names are generated in bulk once and recycled instead of deleted.
+ * XB_NO_QUERY_POOL=1 restores glGenQueries/glDeleteQueries per query. */
+#define QUERY_POOL_BATCH 256
+static GLuint *g_query_pool;
+static unsigned int g_query_pool_count, g_query_pool_cap;
+static int g_query_pool_on = -1;
+
+static bool query_pool_enabled(void)
+{
+    if (g_query_pool_on < 0) {
+        g_query_pool_on = getenv("XB_NO_QUERY_POOL") == NULL;
+    }
+    return g_query_pool_on;
+}
+
+GLuint pgraph_gl_query_alloc(void)
+{
+    GLuint q;
+    if (!query_pool_enabled()) {
+        glGenQueries(1, &q);
+        return q;
+    }
+    if (!g_query_pool_count) {
+        if (g_query_pool_cap < QUERY_POOL_BATCH) {
+            g_query_pool_cap = QUERY_POOL_BATCH;
+            g_query_pool = g_realloc(g_query_pool, sizeof(GLuint) * g_query_pool_cap);
+        }
+        glGenQueries(QUERY_POOL_BATCH, g_query_pool);
+        g_query_pool_count = QUERY_POOL_BATCH;
+    }
+    return g_query_pool[--g_query_pool_count];
+}
+
+void pgraph_gl_query_free(unsigned int count, GLuint *queries)
+{
+    if (!count) {
+        return;
+    }
+    if (!query_pool_enabled()) {
+        glDeleteQueries(count, queries);
+        return;
+    }
+    if (g_query_pool_count + count > g_query_pool_cap) {
+        g_query_pool_cap = MAX(g_query_pool_cap * 2, g_query_pool_count + count);
+        g_query_pool = g_realloc(g_query_pool, sizeof(GLuint) * g_query_pool_cap);
+    }
+    memcpy(g_query_pool + g_query_pool_count, queries, sizeof(GLuint) * count);
+    g_query_pool_count += count;
+}
+
 static int report_cache_slot(uint32_t offset)
 {
     return (offset >> 4) & (REPORT_CACHE_SIZE - 1);
@@ -81,7 +133,7 @@ static uint32_t sum_queries(PGRAPHState *pg, unsigned int count, GLuint *queries
         total += (gl_query_result + ss - 1) / ss;
     }
     if (count) {
-        glDeleteQueries(count, queries);
+        pgraph_gl_query_free(count, queries);
         g_free(queries);
     }
     return total;
@@ -220,7 +272,7 @@ void pgraph_gl_clear_report_value(NV2AState *d)
      *        the report memory block?
      */
     if (r->gl_zpass_pixel_count_query_count) {
-        glDeleteQueries(r->gl_zpass_pixel_count_query_count,
+        pgraph_gl_query_free(r->gl_zpass_pixel_count_query_count,
                         r->gl_zpass_pixel_count_queries);
         r->gl_zpass_pixel_count_query_count = 0;
     }
@@ -280,14 +332,14 @@ void pgraph_gl_finalize_reports(PGRAPHState *pg)
     QueryReport *report, *next;
     QSIMPLEQ_FOREACH_SAFE (report, &r->report_queue, entry, next) {
         if (report->query_count) {
-            glDeleteQueries(report->query_count, report->queries);
+            pgraph_gl_query_free(report->query_count, report->queries);
         }
         QSIMPLEQ_REMOVE_HEAD(&r->report_queue, entry);
         g_free(report);
     }
 
     if (r->gl_zpass_pixel_count_query_count) {
-        glDeleteQueries(r->gl_zpass_pixel_count_query_count,
+        pgraph_gl_query_free(r->gl_zpass_pixel_count_query_count,
                         r->gl_zpass_pixel_count_queries);
         r->gl_zpass_pixel_count_query_count = 0;
     }
