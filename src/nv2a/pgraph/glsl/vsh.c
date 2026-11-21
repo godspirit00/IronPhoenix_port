@@ -436,9 +436,19 @@ MString *pgraph_glsl_gen_vsh(const VshState *state, GenVshGlslOptions opts)
                    "  gl_Position = oPos;\n"
         );
     } else {
-        mstring_append(body,
-                   "  gl_Position = vec4(oPos.x, oPos.y, 2.0*oPos.z - oPos.w, oPos.w);\n"
-        );
+        if (g_glsl_conservative_depth) {
+            /* window depth lowered by 512/2^24 of the range: the conservative-depth fragment
+             * shaders' exact value (floored to D16/D24) is then never below the interpolated
+             * one. Only the early depth test sees this - every fragment shader writes
+             * gl_FragDepth - and GL_DEPTH_CLAMP is always on, so nothing is clipped. */
+            mstring_append(body,
+                       "  gl_Position = vec4(oPos.x, oPos.y, 2.0*(oPos.z - 3.0517578125e-05*oPos.w) - oPos.w, oPos.w);\n"
+            );
+        } else {
+            mstring_append(body,
+                       "  gl_Position = vec4(oPos.x, oPos.y, 2.0*oPos.z - oPos.w, oPos.w);\n"
+            );
+        }
     }
 
     mstring_append(body, "}\n");

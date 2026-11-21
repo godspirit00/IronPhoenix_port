@@ -72,7 +72,16 @@ typedef struct PshState {
 
     unsigned int surface_zeta_format;
     enum PshDepthFormat depth_format;
+
+    /* Port: declare gl_FragDepth with layout(depth_greater) so the GPU can reject fragments
+     * early with the interpolated depth (the shader still writes the exact emulated value).
+     * Only set where the written depth can not be below the interpolated one: no w-buffer,
+     * depth-clip cull mode (no far clamp), no polygon offset; the vertex shader lowers
+     * gl_Position.z slightly to cover integer flooring and interpolation error. */
+    bool conservative_depth;
+    bool conservative_verify; /* separate cache entries for the verify variant */
 } PshState;
+
 
 void pgraph_glsl_set_psh_state(PGRAPHState *pg, PshState *state);
 

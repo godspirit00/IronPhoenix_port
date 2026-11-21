@@ -25,6 +25,7 @@
 #include "pgraph/swizzle.h"
 #include "debug.h"
 #include "renderer.h"
+#include "gpu_profile.h"
 
 static void surface_download(NV2AState *d, SurfaceBinding *surface, bool force);
 static void surface_record_ram_hash(NV2AState *d, SurfaceBinding *surface);
@@ -352,6 +353,7 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
                                       TextureShape *texture_shape,
                                       int texture_unit)
 {
+    GPU_PROF_SCOPE(GPC_SURF_TO_TEX);
     g_dwp_flags |= DWP_SURF_TO_TEX;
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
@@ -1017,6 +1019,7 @@ static void surface_download_to_buffer(NV2AState *d, SurfaceBinding *surface,
                                        bool swizzle, bool flip, bool downscale,
                                        uint8_t *pixels)
 {
+    GPU_PROF_SCOPE(GPC_SURF_DOWNLOAD);
     PGRAPHState *pg = &d->pgraph;
 
     swizzle &= surface->swizzle;
@@ -1221,6 +1224,7 @@ void pgraph_gl_upload_surface_data(NV2AState *d, SurfaceBinding *surface,
         return;
     }
     PROF_SCOPE(PS_SURF_UL);
+    GPU_PROF_SCOPE(GPC_SURF_UPLOAD);
 
     nv2a_profile_inc_counter(NV2A_PROF_SURF_UPLOAD);
 

@@ -58,6 +58,21 @@ static uint32_t get_color_key_mask_for_texture(PGRAPHState *pg, int i)
     return get_colorkey_mask(color_format);
 }
 
+static bool psh_polygon_offset_enabled(PGRAPHState *pg)
+{
+    if (pg->primitive_mode < PRIM_TYPE_TRIANGLES) {
+        return false;
+    }
+    uint32_t raster = pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER);
+    uint32_t polygon_mode = GET_MASK(raster, NV_PGRAPH_SETUPRASTER_FRONTFACEMODE);
+    return (polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_FILL &&
+            (raster & NV_PGRAPH_SETUPRASTER_POFFSETFILLENABLE)) ||
+           (polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_LINE &&
+            (raster & NV_PGRAPH_SETUPRASTER_POFFSETLINEENABLE)) ||
+           (polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_POINT &&
+            (raster & NV_PGRAPH_SETUPRASTER_POFFSETPOINTENABLE));
+}
+
 void pgraph_glsl_set_psh_state(PGRAPHState *pg, PshState *state)
 {
     state->window_clip_exclusive = pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER) &
@@ -229,6 +244,10 @@ void pgraph_glsl_set_psh_state(PGRAPHState *pg, PshState *state)
         assert(!"Unknown zeta surface format");
         break;
     }
+
+    state->conservative_depth = g_glsl_conservative_depth && !state->z_perspective &&
+                                state->depth_clipping && !psh_polygon_offset_enabled(pg);
+    state->conservative_verify = state->conservative_depth && g_glsl_conservative_verify;
 }
 
 struct InputInfo {
@@ -1519,6 +1538,17 @@ static MString* psh_convert(struct PixelShader *ps)
 
     MString *final = mstring_new();
     mstring_append_fmt(final, "#version %d\n\n", ps->opts.vulkan ? 450 : 400);
+    if (ps->state->conservative_depth && !ps->opts.vulkan) {
+        mstring_append(final, "#extension GL_ARB_conservative_depth : require\n"
+                              "layout(depth_greater) out float gl_FragDepth;\n");
+        if (ps->state->conservative_verify) {
+            mstring_append(final, "#extension GL_ARB_shader_atomic_counters : require\n"
+                                  "layout(binding = 0, offset = 0) uniform atomic_uint cdViolations;\n"
+                                  "layout(binding = 0, offset = 4) uniform atomic_uint cdChecked;\n");
+            mstring_append(ps->code, "atomicCounterIncrement(cdChecked);\n");
+            mstring_append(ps->code, "if (gl_FragDepth < gl_FragCoord.z) atomicCounterIncrement(cdViolations);\n");
+        }
+    }
     mstring_append(final, mstring_get_str(preflight));
     mstring_append(final, "void main() {\n");
     mstring_append(final, mstring_get_str(clip));
@@ -1708,21 +1738,7 @@ void pgraph_glsl_set_psh_uniform_values(PGRAPHState *pg,
         pgraph_glsl_set_clip_range_uniform_value(pg, values->clipRange[0]);
     }
 
-    bool polygon_offset_enabled = false;
-    if (pg->primitive_mode >= PRIM_TYPE_TRIANGLES) {
-        uint32_t raster = pgraph_reg_r(pg, NV_PGRAPH_SETUPRASTER);
-        uint32_t polygon_mode =
-            GET_MASK(raster, NV_PGRAPH_SETUPRASTER_FRONTFACEMODE);
-
-        if ((polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_FILL &&
-             (raster & NV_PGRAPH_SETUPRASTER_POFFSETFILLENABLE)) ||
-            (polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_LINE &&
-             (raster & NV_PGRAPH_SETUPRASTER_POFFSETLINEENABLE)) ||
-            (polygon_mode == NV_PGRAPH_SETUPRASTER_FRONTFACEMODE_POINT &&
-             (raster & NV_PGRAPH_SETUPRASTER_POFFSETPOINTENABLE))) {
-            polygon_offset_enabled = true;
-        }
-    }
+    bool polygon_offset_enabled = psh_polygon_offset_enabled(pg);
 
     if (locs[PshUniform_depthOffset] != -1) {
         float zbias = 0.0f;

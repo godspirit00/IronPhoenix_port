@@ -20,6 +20,10 @@
 #include "common.h"
 #include "pgraph/pgraph.h"
 
+/* Set by the OpenGL renderer when GL_ARB_conservative_depth is usable (see psh.h). */
+bool g_glsl_conservative_depth;
+bool g_glsl_conservative_verify;
+
 #define DECL_UNIFORM_ELEMENT_NAME(type) #type,
 const char *uniform_element_type_to_str[] = {
     UNIFORM_ELEMENT_TYPE_X(DECL_UNIFORM_ELEMENT_NAME)

@@ -26,6 +26,7 @@
 #include "pgraph/texture.h"
 #include "debug.h"
 #include "renderer.h"
+#include "gpu_profile.h"
 
 static TextureBinding* generate_texture(PGRAPHGLState *r, const TextureShape s, const uint8_t *texture_data, const uint8_t *palette_data);
 static void texture_binding_destroy(PGRAPHGLState *r, TextureBinding *binding);
@@ -606,6 +607,7 @@ static void upload_gl_texture(GLenum gl_target,
 {
     ColorFormatInfo f = kelvin_color_format_gl_map[s.color_format];
     nv2a_profile_inc_counter(NV2A_PROF_TEX_UPLOAD);
+    GPU_PROF_SCOPE(GPC_TEX_UPLOAD);
     g_dwp_flags |= DWP_TEX_UPLOAD;
 
     unsigned int adjusted_width = s.width;

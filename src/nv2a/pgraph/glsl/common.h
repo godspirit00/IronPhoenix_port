@@ -25,6 +25,12 @@
 #include "qemu/osdep.h"
 #include "qemu/mstring.h"
 
+/* GL_ARB_conservative_depth usable by the OpenGL renderer (see PshState.conservative_depth) */
+extern bool g_glsl_conservative_depth;
+/* XB_CONSERVATIVE_VERIFY=1: those shaders count fragments whose written depth is below
+ * gl_FragCoord.z (atomic counter binding 0, offset 0) and all checked fragments (offset 4) */
+extern bool g_glsl_conservative_verify;
+
 typedef int ivec2[2];
 typedef int ivec4[4];
 typedef float mat2[2 * 2];

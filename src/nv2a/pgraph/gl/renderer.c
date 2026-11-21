@@ -23,6 +23,7 @@
 #include "pgraph/pgraph.h"
 #include "debug.h"
 #include "renderer.h"
+#include "gpu_profile.h"
 
 GloContext *g_nv2a_context_render;
 GloContext *g_nv2a_context_display;
@@ -41,6 +42,9 @@ static void early_context_init(void)
     glo_context_destroy(context);
     glo_set_current(g_nv2a_context_display);
 }
+
+static GLuint g_cd_verify_buffer;
+static void conservative_verify_report(void);
 
 static void pgraph_gl_init(NV2AState *d, Error **errp)
 {
@@ -82,6 +86,44 @@ static void pgraph_gl_init(NV2AState *d, Error **errp)
 
     r->supported_extensions.texture_filter_anisotropic =
         glo_check_extension("GL_EXT_texture_filter_anisotropic");
+
+    /* Port: conservative depth for the emulated depth path (glsl/psh.h). XB_NO_CONSERVATIVE_DEPTH=1
+     * restores the original shaders. */
+    extern bool g_glsl_conservative_depth;
+    g_glsl_conservative_depth = glo_check_extension("GL_ARB_conservative_depth") &&
+                                !getenv("XB_NO_CONSERVATIVE_DEPTH");
+    nv2a_log("conservative depth: %s", g_glsl_conservative_depth ? "on (XB_NO_CONSERVATIVE_DEPTH=1 disables)"
+                                       : "off");
+    extern bool g_glsl_conservative_verify;
+    if (g_glsl_conservative_depth && getenv("XB_CONSERVATIVE_VERIFY") &&
+        glo_check_extension("GL_ARB_shader_atomic_counters")) {
+        static const GLuint zero[2] = { 0, 0 };
+        glGenBuffers(1, &g_cd_verify_buffer);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, g_cd_verify_buffer);
+        glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof zero, zero, GL_DYNAMIC_READ);
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, g_cd_verify_buffer);
+        g_glsl_conservative_verify = true;
+        nv2a_log("conservative depth: verifying written >= interpolated depth (atomic counters)");
+    }
+}
+
+/* XB_CONSERVATIVE_VERIFY: read and reset the violation counters every 120 flips. */
+static void conservative_verify_report(void)
+{
+    static int flips;
+    static uint64_t total_checked, total_violations;
+    if (!g_cd_verify_buffer || ++flips % 120) {
+        return;
+    }
+    GLuint v[2] = { 0, 0 };
+    static const GLuint zero[2] = { 0, 0 };
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, g_cd_verify_buffer);
+    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof v, v);
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof zero, zero);
+    total_checked += v[1];
+    total_violations += v[0];
+    nv2a_log("conservative depth verify: %u violations / %u fragments (total %llu / %llu)", v[0], v[1],
+             (unsigned long long)total_violations, (unsigned long long)total_checked);
 }
 
 static void pgraph_gl_finalize(NV2AState *d)
@@ -113,6 +155,8 @@ static void pgraph_gl_finalize(NV2AState *d)
 static void pgraph_gl_flip_stall(NV2AState *d)
 {
     NV2A_GL_DFRAME_TERMINATOR();
+    gpu_prof_flip();
+    conservative_verify_report();
     static int finish = -1;
     static GLsync previous;
     if (finish < 0) {

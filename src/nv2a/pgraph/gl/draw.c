@@ -23,6 +23,7 @@
 #include "nv2a_int.h"
 #include "debug.h"
 #include "renderer.h"
+#include "gpu_profile.h"
 
 /* Optional sampled GPU spans; query results are only read after availability. */
 void pgraph_gl_init_draw_timing(PGRAPHGLState *r)
@@ -145,6 +146,7 @@ void pgraph_gl_clear_surface(NV2AState *d, uint32_t parameter)
 {
     if (null_draw()) return;
     PROF_SCOPE(PS_CLEAR);
+    GPU_PROF_SCOPE(GPC_CLEAR);
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
@@ -599,6 +601,13 @@ void pgraph_gl_flush_draw(NV2AState *d)
     }
     assert(r->shader_binding);
     GpuDrawSample gpu_sample __attribute__((cleanup(gpu_draw_end))) = gpu_draw_begin(r);
+    GPU_PROF_SCOPE(GPC_DRAW);
+    gpu_prof_set_key(gpu_prof_slot_GPC_DRAW, (r->shader_binding->gl_program << 3)
+                     | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0) & NV_PGRAPH_CONTROL_0_ZENABLE)
+                     | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0) & NV_PGRAPH_CONTROL_0_ZWRITEENABLE) << 1
+                     | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_1) & NV_PGRAPH_CONTROL_1_STENCIL_TEST_ENABLE) << 2,
+                     pg->draw_arrays_length ? pg->draw_arrays_max_count : pg->inline_elements_length ? pg->inline_elements_length
+                     : pg->inline_array_length ? pg->inline_array_length : pg->inline_buffer_length);
 
     if (pg->draw_arrays_length) {
         NV2A_GL_DPRINTF(false, "Draw Arrays");
