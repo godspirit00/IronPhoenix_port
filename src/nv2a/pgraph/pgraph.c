@@ -104,6 +104,41 @@ uint64_t pgraph_read(void *opaque, hwaddr addr, unsigned int size)
     return r;
 }
 
+/* XB_NOP_LOG=1 (diagnostic): software-method NOPs by parameter, with count and total wait
+ * until the guest ISR acknowledged them; logged every 2 s. */
+static struct { uint32_t param; uint32_t n; int64_t ticks; } g_nop_stats[16];
+static int g_nop_cur = -1, g_nop_log_on = -1;
+static int64_t g_nop_log_at;
+void nop_log_raise(uint32_t parameter)
+{
+    if (g_nop_log_on < 0) g_nop_log_on = getenv("XB_NOP_LOG") != NULL;
+    if (!g_nop_log_on) return;
+    g_nop_cur = -1;
+    for (int i = 0; i < 16; i++) {
+        if (g_nop_stats[i].n && g_nop_stats[i].param == parameter) { g_nop_cur = i; break; }
+        if (!g_nop_stats[i].n) { g_nop_stats[i].param = parameter; g_nop_cur = i; break; }
+    }
+}
+void nop_log_ack(int64_t ticks)
+{
+    if (g_nop_log_on <= 0 || g_nop_cur < 0) return;
+    g_nop_stats[g_nop_cur].n++;
+    g_nop_stats[g_nop_cur].ticks += ticks;
+    g_nop_cur = -1;
+    LARGE_INTEGER now, f;
+    QueryPerformanceCounter(&now);
+    QueryPerformanceFrequency(&f);
+    if (now.QuadPart < g_nop_log_at) return;
+    g_nop_log_at = now.QuadPart + 2 * f.QuadPart;
+    char b[600]; int o = 0;
+    for (int i = 0; i < 16 && g_nop_stats[i].n; i++) {
+        o += snprintf(b + o, sizeof b - o, " %08x:%u/%.1fms", g_nop_stats[i].param, g_nop_stats[i].n,
+                      g_nop_stats[i].ticks * 1000.0 / f.QuadPart);
+    }
+    nv2a_log("nop methods:%s", b);
+    memset(g_nop_stats, 0, sizeof g_nop_stats);
+}
+
 void pgraph_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size)
 {
     NV2AState *d = (NV2AState *)opaque;
@@ -125,6 +160,8 @@ void pgraph_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size)
                 LARGE_INTEGER now;
                 QueryPerformanceCounter(&now);
                 g_nop_wait_ticks += now.QuadPart - g_nop_raised.QuadPart;
+                extern void nop_log_ack(int64_t ticks);
+                nop_log_ack(now.QuadPart - g_nop_raised.QuadPart);
             }
             pg->waiting_for_nop = false;
         }
@@ -569,6 +606,8 @@ static void pgraph_method_log(unsigned int subchannel,
                               unsigned int graphics_class,
                               unsigned int method, uint32_t parameter)
 {
+    /* Port change: the trace points are compiled out; skip the per-word bookkeeping too. */
+    return;
     const char *method_name = "?";
     static unsigned int last = 0;
     static unsigned int count = 0;
@@ -924,6 +963,8 @@ DEF_METHOD(NV097, NO_OPERATION)
         extern volatile LONG g_nop_count;
         QueryPerformanceCounter(&g_nop_raised);
         g_nop_count++;
+        extern void nop_log_raise(uint32_t parameter);
+        nop_log_raise(parameter);
     }
 
     qemu_mutex_unlock(&pg->lock);

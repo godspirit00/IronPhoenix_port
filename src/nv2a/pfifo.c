@@ -295,8 +295,16 @@ static void pfifo_run_pusher(NV2AState *d)
 
     while (!pfifo_pusher_should_stall(d)) {
         uint32_t dma_get_v = *dma_get;
-        uint32_t dma_put_v = *dma_put;
+        uint32_t dma_put_v = __atomic_load_n(dma_put, __ATOMIC_ACQUIRE);
         if (dma_get_v == dma_put_v) break;
+        {
+            /* New commands: CPU writes made before this PUT must be visible to dirty checks. */
+            static uint32_t last_seen_put = 0xFFFFFFFF;
+            if (dma_put_v != last_seen_put) {
+                last_seen_put = dma_put_v;
+                __atomic_fetch_add(&g_nv2a_kick_epoch, 1, __ATOMIC_SEQ_CST);
+            }
+        }
         if (dma_get_v >= dma_len) {
             assert(!"Dma value is out of range in PFIFO pusher");
             SET_MASK(*dma_state, NV_PFIFO_CACHE1_DMA_STATE_ERROR,

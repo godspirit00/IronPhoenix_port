@@ -98,7 +98,7 @@ Environment variables that can help on slower machines (Steam Deck):
 | Variable | Effect |
 |---|---|
 | `XB_AUDIO_DSP=0` | Skip the audio DSP programs: much less CPU, no DSP effects such as reverb |
-| `XB_OCCLUSION=late` | Don't stall the GPU thread on occlusion-query results |
+| `XB_OCCLUSION=exact` | Wait for each occlusion-query result before continuing (old default; `late` is now the default and doesn't stall the renderer) |
 | `XB_VP_WORKERS=N` | Audio voice worker threads (default: half the logical CPUs, at most 4) |
 
 Audio A/B test switches (for reporting sound problems):

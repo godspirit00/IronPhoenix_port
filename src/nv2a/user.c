@@ -94,7 +94,12 @@ void user_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size)
                 /* Port: CPU writes made before new commands are submitted must be visible to the
                  * GPU -> start a new dirty-tracking epoch (see nv2a_dirty_sync_range). */
                 extern volatile uint32_t g_nv2a_kick_epoch;
-                if (d->pfifo.regs[NV_PFIFO_CACHE1_DMA_PUT] != val) {
+                /* Port change: by default the pusher starts the epoch when it observes the new PUT
+                 * (pfifo.c), so PUT writes made while it is busy share one epoch.
+                 * XB_EPOCH_ON_PUT_WRITE=1 restores one epoch per PUT write. */
+                static int on_write = -1;
+                if (on_write < 0) on_write = getenv("XB_EPOCH_ON_PUT_WRITE") != NULL;
+                if (on_write && d->pfifo.regs[NV_PFIFO_CACHE1_DMA_PUT] != val) {
                     __atomic_fetch_add(&g_nv2a_kick_epoch, 1, __ATOMIC_SEQ_CST);
                 }
                 d->pfifo.regs[NV_PFIFO_CACHE1_DMA_PUT] = val;

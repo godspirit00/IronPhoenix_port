@@ -397,6 +397,41 @@ static DWORD WINAPI profiler_thread(void *arg) {
     std::map<DWORD, std::map<uint32_t, uint32_t>> direct; // tid -> [esp+4] when stopped in a syscall stub
     DWORD self = GetCurrentThreadId();
     DWORD end = GetTickCount() + secs * 1000;
+    /* XB_PROFILE_GPU_ONLY=1: sample only the renderer (pfifo) thread, ~1 kHz instead of one
+     * snapshot of every thread per loop (~20 Hz), for function-level detail of the draw path. */
+    extern volatile unsigned long g_glcp_thread;
+    if (getenv("XB_PROFILE_GPU_ONLY") && g_glcp_thread) {
+        HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, g_glcp_thread);
+        DWORD tid = g_glcp_thread;
+        timeBeginPeriod(1);
+        while (h && GetTickCount() < end) {
+            if (SuspendThread(h) != (DWORD)-1) {
+                CONTEXT c = {};
+                c.ContextFlags = CONTEXT_CONTROL;
+                if (GetThreadContext(h, &c)) {
+                    hits[tid][c.Eip]++;
+                    totals[tid]++;
+                    if (c.Eip >= 0x1000000) {
+                        uint32_t *sp = (uint32_t *)c.Esp;
+                        int depth = 4096;
+                        while (depth > 16 && !readable(sp, depth * 4)) depth /= 2;
+                        if (depth >= 2) direct[tid][sp[0]]++;
+                        for (int i = 0; i < depth; i++) {
+                            if (sp[i] >= 0x11000 && sp[i] < 0x1000000) {
+                                callers[tid][sp[i]]++;
+                                break;
+                            }
+                        }
+                    }
+                }
+                ResumeThread(h);
+            }
+            Sleep(1);
+        }
+        timeEndPeriod(1);
+        if (h) CloseHandle(h);
+        end = 0; /* skip the all-thread loop */
+    }
     while (GetTickCount() < end) {
         HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
         THREADENTRY32 te = {sizeof(te)};

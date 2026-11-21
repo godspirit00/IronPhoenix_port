@@ -46,15 +46,16 @@ static int g_num_deferred;
 static bool g_deferred_need_flush; /* one glFlush per pusher batch so deferred queries complete */
 volatile long g_reports_deferred, g_reports_blocking; /* perf counters */
 
-/* XB_OCCLUSION=exact (default: blocking GL read, xemu behaviour - stale answers made light
- * effects flicker), fast (previous result while the GPU is busy), late (exact value written when
- * the GPU has it; the game waits) */
+/* XB_OCCLUSION=late (default since 2026-11-21: exact value written when the GPU has it, in
+ * submission order; the renderer keeps working and the game polls until it lands - ~10% faster
+ * than exact in heavy scenes on NVIDIA, more on AMD), exact (blocking GL read before continuing,
+ * xemu behaviour), fast (previous result while the GPU is busy - made light effects flicker) */
 static int g_occl_mode = -1; /* 0 fast, 1 exact, 2 late */
 int nv2a_occlusion_mode(void)
 {
     if (g_occl_mode < 0) {
         const char *m = getenv("XB_OCCLUSION");
-        g_occl_mode = !m ? 1 : !strcmp(m, "fast") ? 0 : !strcmp(m, "late") ? 2 : 1;
+        g_occl_mode = !m ? 2 : !strcmp(m, "fast") ? 0 : !strcmp(m, "exact") ? 1 : 2;
     }
     return g_occl_mode;
 }

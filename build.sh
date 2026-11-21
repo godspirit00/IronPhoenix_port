@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 TC=${TC:-toolchain/llvm-mingw-20261006-ucrt-x86_64/bin}
 CXX=$TC/i686-w64-mingw32-clang++
 CC=$TC/i686-w64-mingw32-clang
-OUT=build
+OUT=${OUT:-build}
 OBJ=$OUT/obj
 if [ "${VULKAN:-0}" = "1" ]; then OBJ=$OUT/obj-vulkan; fi
 [ "$1" == "clean" ] && rm -rf $OBJ

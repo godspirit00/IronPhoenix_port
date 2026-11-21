@@ -508,6 +508,7 @@ KEXPORT void xk_KeInitializeDpc(X_KDPC *Dpc, uint32_t DeferredRoutine, uint32_t 
     Dpc->Inserted = 0;
     Dpc->DeferredRoutine = DeferredRoutine;
     Dpc->DeferredContext = DeferredContext;
+    logf("KeInitializeDpc: dpc=%08x routine=%08x ctx=%08x", (uint32_t)(uintptr_t)Dpc, DeferredRoutine, DeferredContext);
 }
 
 KEXPORT uint32_t xk_KeInsertQueueDpc(X_KDPC *Dpc, uint32_t SystemArgument1, uint32_t SystemArgument2) {
