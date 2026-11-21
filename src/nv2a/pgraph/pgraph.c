@@ -2077,8 +2077,12 @@ DEF_METHOD_INC(NV097, SET_TRANSFORM_PROGRAM)
                                 NV_PGRAPH_CHEOPS_OFFSET_PROG_LD_PTR);
 
     assert(program_load < NV2A_MAX_TRANSFORM_PROGRAM_LENGTH);
-    pg->program_data[program_load][slot%4] = parameter;
-    pg->program_data_dirty = true;
+    /* Port change: the game resends the same vertex program before most draws; only a changed
+     * word invalidates the shader state (rebuilding/hashing 2.7 KB of state cost ~1 us/draw). */
+    if (pg->program_data[program_load][slot%4] != parameter) {
+        pg->program_data[program_load][slot%4] = parameter;
+        pg->program_data_dirty = true;
+    }
 
     if (slot % 4 == 3) {
         PG_SET_MASK(NV_PGRAPH_CHEOPS_OFFSET,

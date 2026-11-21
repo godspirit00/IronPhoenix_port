@@ -945,7 +945,72 @@ typedef struct ShaderUniformCache {
     bool valid;
     VshUniformValues vsh;
     PshUniformValues psh;
+    /* c[] (vertex constants) tracked separately, see update_vsh_constants */
+    bool c_valid;
+    int c_consecutive; /* -1 unknown; 1: location of c[i] == location of c + i */
+    uint32_t c_gen;
 } ShaderUniformCache;
+
+/* Port change: per-row generations of the vertex constants. Every writer of pg->vsh_constants
+ * sets vsh_constants_dirty[row]; the GL renderer consumes those flags once per draw. A program
+ * whose cached c[] is at the current generation skips the 3 KB compare entirely; otherwise only
+ * rows written since its last upload are compared, and only the changed span is uploaded. */
+static uint32_t g_vsh_row_gen[NV2A_VERTEXSHADER_CONSTANTS];
+static uint32_t g_vsh_const_gen = 1;
+
+static void consume_vsh_constant_writes(PGRAPHState *pg)
+{
+    const uint64_t *flags = (const uint64_t *)pg->vsh_constants_dirty;
+    QEMU_BUILD_BUG_MSG(sizeof(pg->vsh_constants_dirty) % 8, "dirty flag array size");
+    bool any = false;
+    for (unsigned w = 0; w < sizeof(pg->vsh_constants_dirty) / 8; w++) {
+        if (flags[w]) { any = true; break; }
+    }
+    if (!any) return;
+    uint32_t gen = ++g_vsh_const_gen;
+    for (unsigned row = 0; row < NV2A_VERTEXSHADER_CONSTANTS; row++) {
+        if (pg->vsh_constants_dirty[row]) {
+            g_vsh_row_gen[row] = gen;
+            pg->vsh_constants_dirty[row] = false;
+        }
+    }
+}
+
+static void update_vsh_constants(PGRAPHState *pg, ShaderBinding *binding, ShaderUniformCache *cache)
+{
+    GLint loc = binding->uniform_locs.vsh[VshUniform_c];
+    if (loc == -1) return;
+    float (*cached)[4] = cache->vsh.c;
+    if (!cache->c_valid) {
+        memcpy(cached, pg->vsh_constants, sizeof(pg->vsh_constants));
+        glUniform4fv(loc, NV2A_VERTEXSHADER_CONSTANTS, &cached[0][0]);
+        cache->c_valid = true;
+        cache->c_gen = g_vsh_const_gen;
+        if (cache->c_consecutive < 0) {
+            cache->c_consecutive =
+                glGetUniformLocation(binding->gl_program, "c[1]") == loc + 1 &&
+                glGetUniformLocation(binding->gl_program, "c[191]") == loc + 191;
+        }
+        return;
+    }
+    if (cache->c_gen == g_vsh_const_gen) return;
+    int lo = -1, hi = -1;
+    for (int row = 0; row < NV2A_VERTEXSHADER_CONSTANTS; row++) {
+        if (g_vsh_row_gen[row] > cache->c_gen &&
+            memcmp(cached[row], pg->vsh_constants[row], 16)) {
+            memcpy(cached[row], pg->vsh_constants[row], 16);
+            if (lo < 0) lo = row;
+            hi = row;
+        }
+    }
+    cache->c_gen = g_vsh_const_gen;
+    if (lo < 0) return;
+    if (cache->c_consecutive) {
+        glUniform4fv(loc + lo, hi - lo + 1, &cached[lo][0]);
+    } else {
+        glUniform4fv(loc, NV2A_VERTEXSHADER_CONSTANTS, &cached[0][0]);
+    }
+}
 
 /* Full-width UI draws override this after the ordinary uniform update. Record
  * the actual program value so the next draw restores its requested squash. */
@@ -1020,13 +1085,21 @@ static void update_shader_uniforms(PGRAPHState *pg, ShaderBinding *binding)
         binding->uniform_cache = g_malloc0(sizeof(ShaderUniformCache));
     }
     ShaderUniformCache *cache = disabled ? NULL : binding->uniform_cache;
+    if (cache && !cache->valid) cache->c_consecutive = -1;
 
     /* Some uniform arrays contain inactive lanes which the generators leave
      * untouched. Keep those deterministic before comparing/uploading arrays. */
     VshUniformValues vsh_values = {0};
+    VshUniformLocs vsh_locs;
+    memcpy(vsh_locs, binding->uniform_locs.vsh, sizeof(vsh_locs));
+    if (cache) {
+        consume_vsh_constant_writes(pg);
+        update_vsh_constants(pg, binding, cache);
+        vsh_locs[VshUniform_c] = -1; /* handled above */
+    }
     pgraph_glsl_set_vsh_uniform_values(pg, &binding->state.vsh,
-                                  binding->uniform_locs.vsh, &vsh_values);
-    apply_uniform_updates(VshUniformInfo, binding->uniform_locs.vsh,
+                                  vsh_locs, &vsh_values);
+    apply_uniform_updates(VshUniformInfo, vsh_locs,
                           &vsh_values, cache ? &cache->vsh : NULL,
                           cache && cache->valid, VshUniform__COUNT);
 
