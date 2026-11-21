@@ -18,7 +18,10 @@ def main():
     parser.add_argument('--seconds', type=int, default=155)
     parser.add_argument('--start', type=int, default=115)
     parser.add_argument('--minimum-fps', type=int, default=5)
+    parser.add_argument('--shots', type=int, default=5, help='screenshot interval (each one stalls ~0.5-1 s at scale 3)')
     parser.add_argument('--texture-state-verify', action='store_true')
+    parser.add_argument('--ordinary', action='store_true',
+                        help='ordinary user settings: all HLE bridges off (ignores --mode)')
     args = parser.parse_args()
     if not args.tag or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in args.tag):
         parser.error('invalid tag')
@@ -34,10 +37,12 @@ def main():
         tag = f'{args.tag}-{name}'
         command = [sys.executable, str(root/'tools/perf_run.py'), '--tag', tag,
                    '--script', str(script), '--expect-scene', MAPS[name][0],
-                   '--renderer', 'opengl', '--hle-up', '1', '--hle-indexed', '1',
-                   '--hle-resources', '1', '--hle-buffers', args.mode,
+                   '--renderer', 'opengl',
+                   *(['--hle-up', 'off', '--hle-indexed', 'off', '--hle-resources', 'off', '--hle-buffers', 'off']
+                     if args.ordinary else
+                     ['--hle-up', '1', '--hle-indexed', '1', '--hle-resources', '1', '--hle-buffers', args.mode]),
                    '--hz', '60', '--scale', '3', '--seconds', str(args.seconds),
-                   '--start', str(args.start), '--shots', '5']
+                   '--start', str(args.start), '--shots', str(args.shots), '--no-cpu-timing']
         if args.texture_state_verify:
             command.append('--texture-state-verify')
         print(f'Testing {name} ({MAPS[name][0]})', flush=True)
@@ -51,7 +56,7 @@ def main():
             warnings.append(f'Runner exited with code {completed.returncode}')
         if fps.get('min', 0) < args.minimum_fps:
             warnings.append(f'FPS fell below functional threshold {args.minimum_fps}')
-        row = dict(map=name, scene=MAPS[name][0], fps=fps,
+        row = dict(map=name, scene=MAPS[name][0], fps=fps, fps_interval=report.get('fps_interval'),
                    buffers=report.get('hle_buffers'), warnings=warnings,
                    texture_state=report.get('texture_state'),
                    executable_sha256=report.get('configuration', {}).get('executable_sha256'),

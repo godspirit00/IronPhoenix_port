@@ -11,7 +11,7 @@ OBJ=$OUT/obj
 if [ "${VULKAN:-0}" = "1" ]; then OBJ=$OUT/obj-vulkan; fi
 [ "$1" == "clean" ] && rm -rf $OBJ
 mkdir -p $OBJ
-COMMON="-DHAVE_STDBOOL_H=1 -DENABLE_SINC_FAST_CONVERTER -DENABLE_SINC_MEDIUM_CONVERTER -DENABLE_SINC_BEST_CONVERTER -DPACKAGE=\"libsamplerate\" -DVERSION=\"0.2\" -O2 -g -march=pentium4 -msse2 -mfpmath=sse -fno-strict-aliasing -fno-omit-frame-pointer -DXXH_INLINE_ALL"
+COMMON="-DHAVE_STDBOOL_H=1 -DENABLE_SSE2_LRINT -DENABLE_SINC_FAST_CONVERTER -DENABLE_SINC_MEDIUM_CONVERTER -DENABLE_SINC_BEST_CONVERTER -DPACKAGE=\"libsamplerate\" -DVERSION=\"0.2\" -O2 -g -march=pentium4 -msse2 -mfpmath=sse -fno-strict-aliasing -fno-omit-frame-pointer -DXXH_INLINE_ALL"
 INC="-Isrc -Isrc/net -Isrc/apu -Ithird_party/libsamplerate/include -Ithird_party/glad/include -Isrc/nv2a -Isrc/nv2a/compat -Isrc/nv2a/pgraph/thirdparty/gloffscreen -Ithird_party/nv2a_vsh_cpu/src -Ithird_party/xxHash"
 VK_SRCS=""
 VK_LIBS=""
@@ -41,6 +41,8 @@ for s in $SRCS; do
   if [ ! -f $o ] || [ $s -nt $o ] || [ $NEWEST_H -nt $o ]; then
     echo "  CC $s"
     case $s in
+      # libsamplerate: release (NDEBUG) like its upstream builds - asserts sit in the resampler inner loop
+      third_party/libsamplerate/*.c) $CC $CFLAGS -DNDEBUG -c $s -o $o & ;;
       *.c) $CC $CFLAGS -c $s -o $o & ;;
       *) $CXX $CXXFLAGS -c $s -o $o & ;;
     esac

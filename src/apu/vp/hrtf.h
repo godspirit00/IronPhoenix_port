@@ -35,7 +35,9 @@
 typedef struct {
     int buf_pos;
     struct {
-        float buf[HRTF_BUFLEN];
+        /* Iron Phoenix: history stored twice (buf[i] == buf[i + HRTF_BUFLEN]) so the taps read a
+         * contiguous range instead of two integer modulos per tap (~4k divisions per voice frame) */
+        float buf[2 * HRTF_BUFLEN];
         float hrir_coeff_cur[HRTF_NUM_TAPS];
         float hrir_coeff_tar[HRTF_NUM_TAPS];
     } ch[2];
@@ -109,8 +111,9 @@ static inline void hrtf_filter_process(HrtfFilter *f,
             float *buf = f->ch[ch].buf;
             float *coeff = f->ch[ch].hrir_coeff_cur;
 
-            // Push new sample
+            // Push new sample (both mirror copies)
             buf[f->buf_pos] = in[n][ch];
+            buf[f->buf_pos + HRTF_BUFLEN] = in[n][ch];
 
             // Interaural time difference (channel delay)
             float d = f->itd_cur * (ch == 0 ? +1.0f : -1.0f);
@@ -118,20 +121,25 @@ static inline void hrtf_filter_process(HrtfFilter *f,
                 d = 0.0f;
             }
             int di = d;
+            if (di > HRTF_MAX_DELAY_SAMPLES) di = HRTF_MAX_DELAY_SAMPLES; /* mirror bound; itd is clamped */
             float dfrac = d - di;
 
             // HRIR Convolution
             float acc = 0.0f;
-            for (int k = 0; k < HRTF_NUM_TAPS; k++) {
-                int idx1 = (f->buf_pos - di - k + HRTF_BUFLEN) % HRTF_BUFLEN;
-                float s = buf[idx1];
-
-                // Linear interpolation for fractional part
-                if (dfrac > 0.0f) {
-                    int idx2 = (idx1 - 1 + HRTF_BUFLEN) % HRTF_BUFLEN;
-                    s = s * (1 - dfrac) + buf[idx2] * dfrac;
+            /* original index (buf_pos - di - k + BUFLEN) % BUFLEN; di <= 42 and k <= 30 keep the
+             * unreduced value in [1, 2*BUFLEN), which the mirror makes directly addressable, and
+             * idx2 = (idx1 - 1) mod BUFLEN is the previous mirror element */
+            const float *tap = &buf[f->buf_pos - di + HRTF_BUFLEN];
+            if (dfrac > 0.0f) {
+                for (int k = 0; k < HRTF_NUM_TAPS; k++) {
+                    // Linear interpolation for fractional part
+                    float s = tap[-k] * (1 - dfrac) + tap[-k - 1] * dfrac;
+                    acc += coeff[k] * s;
                 }
-                acc += coeff[k] * s;
+            } else {
+                for (int k = 0; k < HRTF_NUM_TAPS; k++) {
+                    acc += coeff[k] * tap[-k];
+                }
             }
 
             out[n][ch] = acc;

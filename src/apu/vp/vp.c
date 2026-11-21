@@ -1711,8 +1711,11 @@ static void get_voice_bin_src_dst(MCPXAPUState *d, int v,
     }
 }
 
+volatile unsigned long g_apu_vp_worker_thread; /* first worker tid, for XB_PROFILE_VP_ONLY */
 static void *voice_worker_thread(void *arg)
 {
+    { extern __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
+      __sync_val_compare_and_swap(&g_apu_vp_worker_thread, 0, GetCurrentThreadId()); }
     MCPXAPUState *d = arg;
     VoiceWorkDispatch *vwd = &d->vp.voice_work_dispatch;
 

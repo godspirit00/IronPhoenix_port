@@ -86,9 +86,50 @@ extern "C" uint32_t __stdcall hle_GetVisibilityTestResult(uint32_t index, uint32
     return D3DERR_TESTINCOMPLETE;
 }
 
+// Default (late/exact occlusion) hook: the same results as the original function, but while a
+// query is pending the game thread sleeps until the renderer writes a report (or 1 ms passes)
+// instead of spinning on it. The spin took ~40% of the game thread in heavy scenes, CPU time that
+// 4-thread machines need for the renderer, the GL driver thread and the APU.
+// XB_VIS_WAIT=0 restores the original (spinning) code.
+static HANDLE g_report_event;
+static volatile long g_report_waiters;
+static volatile long g_vis_waits;
+
+extern "C" void hle_vis_report_written(void) {
+    if (g_report_waiters) SetEvent(g_report_event);
+}
+
+extern "C" uint32_t __stdcall hle_GetVisibilityTestResultWait(uint32_t index, uint32_t *result, uint64_t *timestamp) {
+    uint8_t *dev = *xptr<uint8_t *>(kD3DDevicePtr);
+    uint8_t *block = *(uint8_t **)(dev + 0x7d4 + (index >> 8) * 4);
+    volatile uint32_t *entry = (volatile uint32_t *)(block + (index & 0xff) * 16);
+    for (int attempt = 0;; attempt++) {
+        if (entry[3] != 0xFFFFFFFF) {
+            *result = entry[2];
+            if (timestamp) *timestamp = *(volatile uint64_t *)entry;
+            g_vis_real++;
+            return 0;
+        }
+        if (attempt == 1) break;
+        if (entry[0] == *(uint32_t *)(dev + 0x2c)) { // query still in the unsubmitted push buffer: kick it
+            typedef void(__thiscall * KickOff_t)(void *, int);
+            ((KickOff_t)kKickOff)(dev, 0);
+        }
+        InterlockedIncrement(&g_report_waiters);
+        if (entry[3] == 0xFFFFFFFF) { // re-check after registering, so a report written meanwhile is not missed
+            WaitForSingleObject(g_report_event, 1);
+            g_vis_waits++;
+        }
+        InterlockedDecrement(&g_report_waiters);
+    }
+    g_vis_incomplete++;
+    return D3DERR_TESTINCOMPLETE;
+}
+
 extern "C" void hle_vis_stats(char *buf, int n) {
-    snprintf(buf, n, "vis real %ld cached %ld mismatch %ld incomplete %ld", g_vis_real, g_vis_cached, g_vis_mismatch, g_vis_incomplete);
-    g_vis_real = g_vis_cached = g_vis_mismatch = g_vis_incomplete = 0;
+    snprintf(buf, n, "vis real %ld cached %ld mismatch %ld incomplete %ld waits %ld", g_vis_real, g_vis_cached, g_vis_mismatch,
+             g_vis_incomplete, g_vis_waits);
+    g_vis_real = g_vis_cached = g_vis_mismatch = g_vis_incomplete = g_vis_waits = 0;
 }
 
 extern "C" int nv2a_occlusion_mode(void);
@@ -99,6 +140,16 @@ void hle_fixes_install() {
     int om = nv2a_occlusion_mode();
     logf("occlusion queries: %s (XB_OCCLUSION=fast|exact|late)", om == 0 ? "fast" : om == 1 ? "exact" : "late");
     if (om != 0) {
+        const char *w = getenv("XB_VIS_WAIT");
+        if (w && !strcmp(w, "0")) {
+            logf("fix 'GetVisibilityTestResult wait': off (XB_VIS_WAIT=0)");
+        } else if (memcmp(xptr<void>(0x00228980), vis_prologue, sizeof vis_prologue) == 0) {
+            g_report_event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+            HOOK(0x00228980, hle_GetVisibilityTestResultWait);
+            logf("fix 'GetVisibilityTestResult wait' applied (XB_VIS_WAIT=0 disables)");
+        } else {
+            logf("fix 'GetVisibilityTestResult wait': unexpected bytes, skipped");
+        }
     } else if (memcmp(xptr<void>(0x00228980), vis_prologue, sizeof vis_prologue) == 0) HOOK(0x00228980, hle_GetVisibilityTestResult);
     else logf("fix 'GetVisibilityTestResult': unexpected bytes, skipped");
 

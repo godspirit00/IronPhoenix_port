@@ -23,6 +23,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/* Iron Phoenix: hot interpreter path - its asserts (bounds/24-bit checks, all side-effect free)
+ * cost measurable time per DSP instruction; XB_DSP_ASSERTS builds keep them. */
+#ifndef XB_DSP_ASSERTS
+#define NDEBUG
+#endif
 #include "qemu/osdep.h"
 #include "qemu/bswap.h"
 #include "dsp_cpu.h"
@@ -126,9 +131,42 @@ static const int registers_mask[64] = {
     16, 16, 16, 16
 };
 
+/* Iron Phoenix: inline fast paths for plain X/Y RAM, the emulation code's hot accesses (mixing
+ * loops move x:(r0)+ / y:(r4)+ every instruction). Peripherals, the mixbuffer (x:0xc00.. and
+ * x:0x1400..), P space and unmapped addresses still go through the full functions. */
+static inline uint32_t dsp_mem_read_fast(dsp_core_t *dsp, int space, uint32_t address)
+{
+    if (space == DSP_SPACE_X && address < 0xc00) {
+        return dsp->xram[address];
+    }
+    if (space == DSP_SPACE_Y && address < DSP_YRAM_SIZE) {
+        return dsp->yram[address];
+    }
+    return dsp56k_read_memory(dsp, space, address);
+}
+static inline void dsp_mem_write_fast(dsp_core_t *dsp, int space, uint32_t address, uint32_t value)
+{
+#if !defined(XPROBE_VALUE)
+    if (!TRACE_DSP_DISASM_MEM) {
+        if (space == DSP_SPACE_X && address < 0xc00) {
+            dsp->xram[address] = value;
+            return;
+        }
+        if (space == DSP_SPACE_Y && address < DSP_YRAM_SIZE) {
+            dsp->yram[address] = value;
+            return;
+        }
+    }
+#endif
+    dsp56k_write_memory(dsp, space, address, value);
+}
+#define dsp56k_read_memory dsp_mem_read_fast
+#define dsp56k_write_memory dsp_mem_write_fast
 #include "dsp_emu.c.inc"
 #include "dsp_emu_extra.c.inc"
 #include "dsp_dis.c.inc"
+#undef dsp56k_read_memory
+#undef dsp56k_write_memory
 
 typedef bool (*match_func_t)(uint32_t op);
 

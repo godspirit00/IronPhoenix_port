@@ -3442,6 +3442,9 @@ void pgraph_write_zpass_pixel_cnt_report(NV2AState *d, uint32_t parameter,
     stq_le_p((uint64_t *)&report_data[0], timestamp);
     stl_le_p((uint32_t *)&report_data[8], result);
     stl_le_p((uint32_t *)&report_data[12], done);
+    /* wake a game thread waiting in GetVisibilityTestResult (hle/fixes.cpp) */
+    extern void hle_vis_report_written(void);
+    hle_vis_report_written();
 
     NV2A_DPRINTF("Report result %d @%" HWADDR_PRIx, result, offset);
 }

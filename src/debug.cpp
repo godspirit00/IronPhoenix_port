@@ -387,6 +387,7 @@ void debug_add_tracepoints(const char *list) {
 #include <map>
 #include <algorithm>
 extern "C" volatile unsigned long g_apu_frame_thread; /* XB_PROFILE_APU_ONLY=1: APU frame thread */
+extern "C" volatile unsigned long g_apu_vp_worker_thread; /* XB_PROFILE_VP_ONLY=1: first voice worker */
 static DWORD WINAPI profiler_thread(void *arg) {
     uint32_t packed = (uint32_t)(uintptr_t)arg;
     DWORD start = packed >> 16, secs = packed & 0xFFFF;
@@ -401,7 +402,8 @@ static DWORD WINAPI profiler_thread(void *arg) {
     /* XB_PROFILE_GPU_ONLY=1: sample only the renderer (pfifo) thread, ~1 kHz instead of one
      * snapshot of every thread per loop (~20 Hz), for function-level detail of the draw path. */
     extern volatile unsigned long g_glcp_thread;
-    DWORD only = getenv("XB_PROFILE_APU_ONLY") ? g_apu_frame_thread
+    DWORD only = getenv("XB_PROFILE_VP_ONLY") ? g_apu_vp_worker_thread
+               : getenv("XB_PROFILE_APU_ONLY") ? g_apu_frame_thread
                : getenv("XB_PROFILE_GPU_ONLY") ? g_glcp_thread : 0;
     if (only) {
         HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, only);
