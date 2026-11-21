@@ -1,17 +1,22 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
-Driver-sync finding (2026-11-21, review session, uncommitted): a host sampling profile
-(`--profile`) of Warship's deck view showed the GL worker thread spending ~40% of its samples in
-NVIDIA's threaded-driver wait loop (GetExitCodeThread -> NtQueryInformationThread), entered from
-`glGenQueries` (one per occlusion-tested draw, ~180/frame, ~30 us each) and `glDrawElements`.
-The PROF scopes counted that wait as draw_begin/draw_end time, which is why earlier passes chased
-our own per-draw code. Fix: query-object pool in gl/reports.c (`XB_NO_QUERY_POOL=1` = old path).
-Same exe, same route, scale 3, ordinary settings: heavy phase 26-34 fps -> 35-43 fps.
-Diagnostic only: `XB_OCCLUSION=fast` on top gives 41-45 (occlusion reads are a minor cost).
-GPU ~60% busy (nvidia-smi), so not GPU-bound. Still open: the remaining driver wait inside
-glDrawElements (~32% of thread samples), GetWriteWatch per draw (~73k calls / 192 ms per 2 s
-via update_memory_buffer), then our own per-draw work. Logs: scratch/perf/review-warship-*.
+Firm-60 progress (2026-11-21, branch fastpath; details and numbers in
+[docs/RENDERER_INVESTIGATION.md](docs/RENDERER_INVESTIGATION.md#driver-thread-findings-2026-11-21)):
+the OpenGL renderer thread was waiting on NVIDIA's threaded-driver worker; any call needing a
+reply (glGenQueries, glMultiDrawArrays, glFinish, glFenceSync, query reads) absorbed the backlog,
+so the PROF scopes blamed our own code. Measure with `XB_GL_CALL_PROFILE=1` ("gl calls:" line,
+per-function time on the renderer thread) and `--profile S,N` + `XB_PROFILE_GPU_ONLY=1` (1 kHz
+samples of the renderer thread only). Fixed: query-object pool, glDrawArrays loop instead of
+glMultiDrawArrays, fence-based flip stall, lazy glActiveTexture, cached buffer bindings, dirty
+check memo, program-dirty only on change, incremental vertex-constant uploads, late occlusion
+results by default (`XB_OCCLUSION=exact` = old), bulk method handlers. Warship heavy phase
+26-34 -> 59-60 fps (71-83 at --hz 120); Castle Entrance pre-spawn overview (4,500 draws/frame)
+18 -> 53-56; all 14 arenas 59-60 in two full matrices (`tools/perf_maps.py --mode off`).
+Steam Deck fixes branch merged (SteamOS crash/hang, ISR, audio). Each change has a kill switch
+(see the doc). Vulkan unchanged (~30 fps on Warship). Tried and reverted: unlocking pfifo during
+report reads, write-watch epoch pre-scan (no gain). GTX 1060 / Deck / Intel untested - next step
+is a build for the user to run there (`XB_GL_CALL_PROFILE=1` logs help attribute driver cost).
 
 Firm-60 diagnosis (2026-11-21): the busiest OpenGL scenes saturate the serial
 graphics worker. Night Demon Warship's heavy frames took about 30 ms with
