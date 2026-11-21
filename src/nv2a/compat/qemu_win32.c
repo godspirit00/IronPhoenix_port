@@ -41,10 +41,12 @@ void qemu_event_wait(QemuEvent *e) { WaitForSingleObject(e->handle, INFINITE); }
 struct thread_start {
     void *(*fn)(void *);
     void *arg;
+    int priority; /* 0 = default */
 };
 static DWORD WINAPI thread_trampoline(void *p) {
     struct thread_start s = *(struct thread_start *)p;
     free(p);
+    if (s.priority) SetThreadPriority(GetCurrentThread(), s.priority);
     s.fn(s.arg);
     return 0;
 }
@@ -52,6 +54,9 @@ void qemu_thread_create(QemuThread *t, const char *name, void *(*fn)(void *), vo
     struct thread_start *s = malloc(sizeof *s);
     s->fn = fn;
     s->arg = arg;
+    /* Audio must keep real time (1500 frames/s): on 4-core CPUs the APU frame thread and voice
+     * workers otherwise lose the core to the game/GPU threads and the output underruns. */
+    s->priority = (name && !strncmp(name, "mcpx.", 5)) ? THREAD_PRIORITY_HIGHEST : 0;
     t->handle = CreateThread(NULL, 4 << 20, thread_trampoline, s, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 }
 void *qemu_thread_join(QemuThread *t) {

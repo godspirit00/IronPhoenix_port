@@ -88,6 +88,8 @@ GloContext *glo_context_create(void) {
             abort();
         }
         nv2a_log("OpenGL: %s / %s / %s", glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION));
+        extern void nv2a_gl_install_guest_guard(void);
+        nv2a_gl_install_guest_guard(); /* before any GL call touches guest memory */
         extern void debug_hook_gect(void);
         debug_hook_gect();
     }

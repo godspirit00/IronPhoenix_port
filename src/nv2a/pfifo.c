@@ -458,6 +458,10 @@ void *pfifo_thread(void *arg)
 {
     NV2AState *d = (NV2AState *)arg;
 
+    {
+        extern __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
+        nv2a_log("pfifo (GPU) thread: tid %lu", GetCurrentThreadId());
+    }
     pgraph_init_thread(d);
     g_nv2a_renderer_ready = true;
 

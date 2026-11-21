@@ -22,6 +22,42 @@
 #include "apu_int.h"
 #include "adpcm.h"
 
+/* Port: audio A/B switches (read once). XB_AUDIO_HRTF=0 no HRTF filtering, XB_AUDIO_VOICE_LPF=0
+ * no per-voice low-pass, XB_AUDIO_HRTF_FIX=0 xemu's original 3D-voice bin mixing. */
+static int vp_env_flag(const char *name, int def)
+{
+    const char *e = getenv(name);
+    return e ? atoi(e) != 0 : def;
+}
+static int g_vp_lpf_on = -1, g_vp_hrtf_on = -1, g_vp_hrtf_fix = -1, g_vp_fc_env = -1, g_vp_log = -1;
+/* XB_AUDIO_REVERB=x: scale voice sends into the I3DL2 reverb mixbin (DSMIXBIN_I3DL2 = 10).
+ * Every map sets an I3DL2 environment (Script/Sn/*.cs SetAudioEnvironment); only with the DSP on. */
+#define MIXBIN_I3DL2 10
+static float g_vp_reverb = 1.0f;
+static void vp_env_init(void)
+{
+    if (g_vp_log >= 0) {
+        return;
+    }
+    g_vp_lpf_on = vp_env_flag("XB_AUDIO_VOICE_LPF", 1);
+    g_vp_hrtf_on = vp_env_flag("XB_AUDIO_HRTF", 1);
+    g_vp_hrtf_fix = vp_env_flag("XB_AUDIO_HRTF_FIX", 1);
+    g_vp_fc_env = vp_env_flag("XB_AUDIO_FC_ENV", 1);
+    const char *rv = getenv("XB_AUDIO_REVERB");
+    if (rv) {
+        g_vp_reverb = fmaxf(0.0f, (float)atof(rv));
+        nv2a_log("apu: I3DL2 reverb send scaled by %.2f", g_vp_reverb);
+    }
+    if (!g_vp_lpf_on || !g_vp_hrtf_on || !g_vp_hrtf_fix || !g_vp_fc_env) {
+        nv2a_log("apu: voice LPF %s, HRTF %s, HRTF bin fix %s, cutoff envelope %s", g_vp_lpf_on ? "on" : "OFF",
+                 g_vp_hrtf_on ? "on" : "OFF", g_vp_hrtf_fix ? "on" : "OFF", g_vp_fc_env ? "on" : "OFF");
+    }
+    __atomic_store_n(&g_vp_log, getenv("XB_VOICE_LOG") ? 1 : 0, __ATOMIC_RELEASE); /* last: marks init done */
+}
+/* XB_VOICE_LOG: frames processed since voice on; parameters are logged at the first frame
+ * and again ~100 ms later (DSound commits 3D positions after the voice starts) */
+static uint16_t g_vlog_frames[MCPX_HW_MAX_VOICES];
+
 static const struct {
     hwaddr top, current, next;
 } voice_list_regs[] = {
@@ -194,6 +230,7 @@ static void fe_method(MCPXAPUState *d, uint32_t method, uint32_t argument)
             static int en = -1;
             if (en < 0) en = getenv("XB_VOICE_LOG") ? 1 : 0;
             if (en) {
+                g_vlog_frames[selected_handle] = 1;
                 nv2a_log("voice on %3u fmt %08x vbin %08x list %u", selected_handle,
                          voice_get_mask(d, selected_handle, NV_PAVS_VOICE_CFG_FMT, 0xFFFFFFFF),
                          voice_get_mask(d, selected_handle, NV_PAVS_VOICE_CFG_VBIN, 0xFFFFFFFF),
@@ -1453,13 +1490,35 @@ static void voice_process(MCPXAPUState *d,
         /* 0:Bypass 1:DLS2 2:ParaEQ 3(Mono):DLS2+ParaEQ 3(Stereo):Bypass */
         lpf = stereo ? (fmode == 1) : (fmode & 1);
     }
-    if (lpf) {
+    vp_env_init();
+    float log_fc_hz[2] = { 0, 0 };
+    int log_fc[2] = { 0, 0 }, log_q[2] = { 0, 0 };
+    if (lpf && g_vp_log && g_vlog_frames[v]) {
         for (int ch = 0; ch < 2; ch++) {
-            // FIXME: Cutoff modulation via NV_PAVS_VOICE_CFG_ENV1_EF_FCSCALE
+            log_fc[ch] = (int16_t)voice_get_mask(d, v, NV_PAVS_VOICE_TAR_FCA + (ch % channels) * 4,
+                                                 NV_PAVS_VOICE_TAR_FCA_FC0);
+            log_q[ch] = voice_get_mask(d, v, NV_PAVS_VOICE_TAR_FCA + (ch % channels) * 4,
+                                       NV_PAVS_VOICE_TAR_FCA_FC1);
+            /* SVF coefficient f = 2 sin(pi fc / fs) -> cutoff in Hz (f is capped at 1.0 = 8 kHz) */
+            float f = clampf(pow(2, (log_fc[ch] + (g_vp_fc_env ? (int8_t)voice_get_mask(d, v, NV_PAVS_VOICE_CFG_ENV1,
+                                                     NV_PAVS_VOICE_CFG_ENV1_EF_FCSCALE) * 32 * ef_value : 0.0f)) / 4096.0),
+                             0.003906f, 1.0f);
+            log_fc_hz[ch] = 48000.0f / (float)M_PI * asinf(f / 2.0f);
+        }
+    }
+    /* Port: filter-envelope modulation of the cutoff. DSound's SetEG (multi/EF envelope) stores
+     * lFilterCutOff in ENV1.EF_FCSCALE next to lPitchScale in ENV0.EF_PITCHSCALE; xemu applies
+     * the pitch half (p + ps*32*ef) but ignored the cutoff half. FC is log2(SVF f)*4096 (from
+     * XACT's converter: 4096*log2(2 sin(pi*hz/48000))), so the same scaling is applied to it.
+     * XB_AUDIO_FC_ENV=0 disables. */
+    int8_t fcscale = voice_get_mask(d, v, NV_PAVS_VOICE_CFG_ENV1, NV_PAVS_VOICE_CFG_ENV1_EF_FCSCALE);
+    float fc_env = g_vp_fc_env ? fcscale * 32 * ef_value : 0.0f;
+    if (lpf && g_vp_lpf_on) {
+        for (int ch = 0; ch < 2; ch++) {
             int16_t fc = voice_get_mask(
                 d, v, NV_PAVS_VOICE_TAR_FCA + (ch % channels) * 4,
                 NV_PAVS_VOICE_TAR_FCA_FC0);
-            float fc_f = clampf(pow(2, fc / 4096.0), 0.003906f, 1.0f);
+            float fc_f = clampf(pow(2, (fc + fc_env) / 4096.0), 0.003906f, 1.0f);
             uint16_t q = voice_get_mask(
                 d, v, NV_PAVS_VOICE_TAR_FCA + (ch % channels) * 4,
                 NV_PAVS_VOICE_TAR_FCA_FC1);
@@ -1473,12 +1532,49 @@ static void voice_process(MCPXAPUState *d,
         }
     }
 
-    if (v < MCPX_HW_MAX_3D_VOICES && g_config.audio.hrtf) {
-        uint16_t hrtf_handle =
-            voice_get_mask(d, v, NV_PAVS_VOICE_CFG_HRTF_TARGET,
-                           NV_PAVS_VOICE_CFG_HRTF_TARGET_HANDLE);
+    /* Port fix: the HRTF turns a voice into a left-ear/right-ear pair, but the mix below picked
+     * samples[b % channels], so a MONO 3D voice sent the left-ear signal to every HRTF bin and
+     * dropped the right ear (sounds on the right came out head-shadowed = muffled; xemu's
+     * default DSP-off monitor path mixes both ears and was not affected). HRTF bins 0-3 now
+     * take ear b % 2; bins 4-7 (effect sends) take the signal before the HRTF. */
+    bool hrtf_done = false;
+    float pre_hrtf[NUM_SAMPLES_PER_FRAME][2];
+    uint16_t hrtf_handle = HRTF_NULL_HANDLE;
+    if (v < MCPX_HW_MAX_3D_VOICES) {
+        hrtf_handle = voice_get_mask(d, v, NV_PAVS_VOICE_CFG_HRTF_TARGET,
+                                     NV_PAVS_VOICE_CFG_HRTF_TARGET_HANDLE);
+    }
+    if (v < MCPX_HW_MAX_3D_VOICES && g_config.audio.hrtf && g_vp_hrtf_on) {
         if (hrtf_handle != HRTF_NULL_HANDLE) {
+            memcpy(pre_hrtf, samples, sizeof(pre_hrtf));
             hrtf_filter_process(&d->vp.filters[v].hrtf, samples, samples);
+            hrtf_done = true;
+        }
+    }
+
+    if (g_vp_log && g_vlog_frames[v]) {
+        uint16_t n = g_vlog_frames[v]++;
+        if (n == 1 || n == 150) {
+            uint32_t fmt = voice_get_mask(d, v, NV_PAVS_VOICE_CFG_FMT, 0xFFFFFFFF);
+            static const char *const cont[] = { "u8", "s16", "adpcm", "s32" };
+            static const char *const lists[] = { "2D", "3D", "MP" };
+            char lp[128] = "off";
+            if (lpf) {
+                snprintf(lp, sizeof lp, "fc %d/%d (~%.0f/%.0f Hz) q %d/%d fcscale %d ef %.2f", log_fc[0], log_fc[1],
+                         log_fc_hz[0], log_fc_hz[1], log_q[0], log_q[1], fcscale, ef_value);
+            }
+            nv2a_log("voice %3u %s %s: %s %s %s %.0f Hz | fmode %d lpf %s | hrtf %s%s | bins %d %d %d %d %d %d %d %d"
+                     " vol %03x %03x %03x %03x %03x %03x %03x %03x | ea %.2f",
+                     v, n == 1 ? "start" : "+100ms", voice_list >= 0 && voice_list < 3 ? lists[voice_list] : "?",
+                     cont[(fmt >> 30) & 3], stereo ? "stereo" : "mono", (fmt & NV_PAVS_VOICE_CFG_FMT_DATA_TYPE) ? "stream" : "buffer",
+                     rate > 0 ? 48000.0f / rate : 0.0f, fmode, lp,
+                     v >= MCPX_HW_MAX_3D_VOICES ? "n/a" : hrtf_handle == HRTF_NULL_HANDLE ? "none" : "yes",
+                     hrtf_done ? "" : (v < MCPX_HW_MAX_3D_VOICES && hrtf_handle != HRTF_NULL_HANDLE ? " (disabled)" : ""),
+                     bin[0], bin[1], bin[2], bin[3], bin[4], bin[5], bin[6], bin[7],
+                     vol[0], vol[1], vol[2], vol[3], vol[4], vol[5], vol[6], vol[7], ea_value);
+        }
+        if (n >= 150) {
+            g_vlog_frames[v] = 0;
         }
     }
 
@@ -1494,6 +1590,21 @@ static void voice_process(MCPXAPUState *d,
             hr = 1 << d->vp.submix_headroom[bin[b]];
         }
         g *= attenuate(vol[b])/hr;
+        if (bin[b] == MIXBIN_I3DL2) {
+            g *= g_vp_reverb;
+        }
+        if (hrtf_done && g_vp_hrtf_fix) {
+            if (b < 4) {
+                for (int i = 0; i < NUM_SAMPLES_PER_FRAME; i++) {
+                    mixbins[bin[b]][i] += g*samples[i][b % 2];
+                }
+            } else {
+                for (int i = 0; i < NUM_SAMPLES_PER_FRAME; i++) {
+                    mixbins[bin[b]][i] += g*pre_hrtf[i][b % channels];
+                }
+            }
+            continue;
+        }
         for (int i = 0; i < NUM_SAMPLES_PER_FRAME; i++) {
             mixbins[bin[b]][i] += g*samples[i][b % channels];
         }
@@ -1770,6 +1881,10 @@ voice_work_dispatch(MCPXAPUState *d,
 
         qemu_cond_timedwait(&d->cond, &d->lock, 1);
     }
+    {
+        extern int64_t g_apu_vp_lock_wait_us;
+        g_apu_vp_lock_wait_us += qemu_clock_get_us(QEMU_CLOCK_REALTIME) - start_time;
+    }
 
     qemu_mutex_lock(&vwd->lock);
 
@@ -1801,7 +1916,17 @@ static void voice_work_init(MCPXAPUState *d)
 {
     VoiceWorkDispatch *vwd = &d->vp.voice_work_dispatch;
 
-    int num_workers = g_config.audio.vp.num_workers ?: SDL_GetNumLogicalCPUCores();
+    /* Port change: xemu wakes one worker per logical CPU every 0.67 ms frame. On 4-core CPUs
+     * (Steam Deck) that competes with the game, GPU and APU threads and the frame waits for the
+     * slowest worker. Default to half the logical CPUs, at most 4; XB_VP_WORKERS=N overrides. */
+    int num_workers = g_config.audio.vp.num_workers;
+    const char *env_workers = getenv("XB_VP_WORKERS");
+    if (env_workers && atoi(env_workers) > 0) {
+        num_workers = atoi(env_workers);
+    }
+    if (!num_workers) {
+        num_workers = MAX(1, MIN(4, SDL_GetNumLogicalCPUCores() / 2));
+    }
     vwd->num_workers = MAX(1, MIN(num_workers, MAX_VOICE_WORKERS));
     vwd->workers = g_malloc0_n(vwd->num_workers, sizeof(VoiceWorker));
     vwd->workers_should_exit = false;
