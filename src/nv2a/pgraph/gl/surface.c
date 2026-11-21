@@ -148,9 +148,9 @@ static void init_render_to_texture(PGRAPHState *pg)
                                                     "surface_size");
 
     glGenVertexArrays(1, &r->s2t_rndr.vao);
-    glBindVertexArray(r->s2t_rndr.vao);
+    glBindVertexArray(r->s2t_rndr.vao); pgraph_gl_buffer_bindings_invalidate();
     glGenBuffers(1, &r->s2t_rndr.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, r->s2t_rndr.vbo);
+    pgraph_gl_bind_array_buffer(r->s2t_rndr.vbo);
     glBufferData(GL_ARRAY_BUFFER, 0, NULL, GL_STATIC_DRAW);
     glGenFramebuffers(1, &r->s2t_rndr.fbo);
 }
@@ -165,7 +165,7 @@ static void finalize_render_to_texture(PGRAPHState *pg)
     glDeleteVertexArrays(1, &r->s2t_rndr.vao);
     r->s2t_rndr.vao = 0;
 
-    glDeleteBuffers(1, &r->s2t_rndr.vbo);
+    glDeleteBuffers(1, &r->s2t_rndr.vbo); pgraph_gl_buffer_bindings_invalidate();
     r->s2t_rndr.vbo = 0;
 
     glDeleteFramebuffers(1, &r->s2t_rndr.fbo);
@@ -245,8 +245,8 @@ static void render_surface_to(NV2AState *d, SurfaceBinding *surface,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 
-    glBindVertexArray(r->s2t_rndr.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, r->s2t_rndr.vbo);
+    glBindVertexArray(r->s2t_rndr.vao); pgraph_gl_buffer_bindings_invalidate();
+    pgraph_gl_bind_array_buffer(r->s2t_rndr.vbo);
     glUseProgram(r->s2t_rndr.prog);
     glProgramUniform1i(r->s2t_rndr.prog, r->s2t_rndr.tex_loc,
                        texture_unit);
@@ -269,7 +269,7 @@ static void render_surface_to(NV2AState *d, SurfaceBinding *surface,
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gl_target, 0,
                            0);
     glBindFramebuffer(GL_FRAMEBUFFER, r->gl_framebuffer);
-    glBindVertexArray(r->gl_vertex_array);
+    glBindVertexArray(r->gl_vertex_array); pgraph_gl_buffer_bindings_invalidate();
     glBindTexture(gl_target, gl_texture);
     glUseProgram(
         r->shader_binding ? r->shader_binding->gl_program : 0);
@@ -352,6 +352,7 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
                                       TextureShape *texture_shape,
                                       int texture_unit)
 {
+    g_dwp_flags |= DWP_SURF_TO_TEX;
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
@@ -844,6 +845,7 @@ static void fb_attach(GLenum att, GLenum textarget, GLuint tex, GLint level)
         return;
     }
     glFramebufferTexture2D(GL_FRAMEBUFFER, att, textarget, tex, level);
+    g_dwp_flags |= DWP_FB;
     if (slot) {
         *slot = tex;
         if (att == GL_DEPTH_STENCIL_ATTACHMENT) { /* also sets/clears the depth and stencil points */
@@ -1495,6 +1497,7 @@ static void update_surface_part(NV2AState *d, bool upload, bool color)
     if (upload && (surface->buffer_dirty || mem_dirty)) {
         extern int g_sp_rebind, g_sp_memdirty;
         g_sp_rebind++;
+        g_dwp_flags |= DWP_SURF_UPLOAD;
         g_sp_memdirty += mem_dirty;
         if (mem_dirty) {
             static int logged;

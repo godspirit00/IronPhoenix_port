@@ -106,6 +106,8 @@ void pgraph_gl_init_display(NV2AState *d)
     assert(!nv2a_gl_debug() || glGetError() == GL_NO_ERROR);
 
     glo_set_current(g_nv2a_context_render);
+    pgraph_gl_buffer_bindings_invalidate();
+    g_gl_no_fast_buffer_bind = getenv("XB_NO_FAST_BUFFER_BIND") != NULL;
 }
 
 void pgraph_gl_finalize_display(PGRAPHState *pg)
@@ -133,6 +135,7 @@ void pgraph_gl_finalize_display(PGRAPHState *pg)
     r->disp_rndr.pvideo_tex = 0;
 
     glo_set_current(g_nv2a_context_render);
+    pgraph_gl_buffer_bindings_invalidate();
 }
 
 static uint8_t *convert_texture_data__CR8YB8CB8YA8(const uint8_t *data,
@@ -435,6 +438,7 @@ void pgraph_gl_sync(NV2AState *d)
 
     /* Switch back to original context */
     glo_set_current(g_nv2a_context_render);
+    pgraph_gl_buffer_bindings_invalidate();
 
     qatomic_set(&d->pgraph.sync_pending, false);
     qemu_event_set(&d->pgraph.sync_complete);

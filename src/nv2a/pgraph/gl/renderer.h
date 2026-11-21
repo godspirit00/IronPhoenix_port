@@ -318,6 +318,34 @@ void pgraph_gl_get_report(NV2AState *d, uint32_t parameter);
 void pgraph_gl_image_blit(NV2AState *d);
 void pgraph_gl_mark_textures_possibly_dirty(NV2AState *d, hwaddr addr, hwaddr size);
 void pgraph_gl_process_pending_reports(NV2AState *d);
+/* XB_DRAW_WAIT_PROBE=1: what preceded slow draw calls (diagnostic). */
+enum { DWP_PROGRAM = 1, DWP_FB = 2, DWP_TEX_UPLOAD = 4, DWP_QUERY = 8, DWP_SURF_TO_TEX = 16, DWP_SURF_UPLOAD = 32, DWP_REPORT_READ = 64 };
+extern unsigned g_dwp_flags;
+/* Port change: cached GL_ARRAY_BUFFER / GL_ELEMENT_ARRAY_BUFFER bindings of the render context
+ * (each glBindBuffer is work for NVIDIA's driver thread; two per draw were redundant).
+ * ~0u = unknown. Invalidate after glBindVertexArray (element binding is VAO state), glDeleteBuffers
+ * and context switches. XB_NO_FAST_BUFFER_BIND=1 always binds. */
+extern GLuint g_gl_array_buffer_bound, g_gl_element_buffer_bound;
+extern int g_gl_no_fast_buffer_bind;
+static inline void pgraph_gl_bind_array_buffer(GLuint b)
+{
+    if (g_gl_no_fast_buffer_bind || g_gl_array_buffer_bound != b) {
+        glBindBuffer(GL_ARRAY_BUFFER, b);
+        g_gl_array_buffer_bound = b;
+    }
+}
+static inline void pgraph_gl_bind_element_buffer(GLuint b)
+{
+    if (g_gl_no_fast_buffer_bind || g_gl_element_buffer_bound != b) {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, b);
+        g_gl_element_buffer_bound = b;
+    }
+}
+static inline void pgraph_gl_buffer_bindings_invalidate(void)
+{
+    g_gl_array_buffer_bound = ~0u;
+    g_gl_element_buffer_bound = ~0u;
+}
 GLuint pgraph_gl_query_alloc(void);
 void pgraph_gl_query_free(unsigned int count, GLuint *queries);
 void pgraph_gl_surface_flush(NV2AState *d);

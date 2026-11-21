@@ -187,6 +187,14 @@ static bool check_texture_possibly_dirty(NV2AState *d,
     return possibly_dirty;
 }
 
+/* Port change: the stage whose texture apply_texture_parameters() edits. The unit is selected
+ * only when a parameter call is actually issued (was: glActiveTexture per enabled stage per draw). */
+static int g_param_stage = -1;
+static void texture_param_select(PGRAPHGLState *r)
+{
+    if (!r->no_fast_texture_state && g_param_stage >= 0) select_texture_stage(r, g_param_stage);
+}
+
 static void apply_texture_parameters(PGRAPHGLState *r,
                                      TextureBinding *binding,
                                      const BasicColorFormatInfo *f,
@@ -221,25 +229,25 @@ static void apply_texture_parameters(PGRAPHGLState *r,
     }
 
     if (min_filter != binding->min_filter) {
-        glTexParameteri(binding->gl_target, GL_TEXTURE_MIN_FILTER,
+        (texture_param_select(r), glTexParameteri)(binding->gl_target, GL_TEXTURE_MIN_FILTER,
                         pgraph_texture_min_filter_gl_map[min_filter]);
         binding->min_filter = min_filter;
     }
     if (mag_filter != binding->mag_filter) {
-        glTexParameteri(binding->gl_target, GL_TEXTURE_MAG_FILTER,
+        (texture_param_select(r), glTexParameteri)(binding->gl_target, GL_TEXTURE_MAG_FILTER,
                         pgraph_texture_mag_filter_gl_map[mag_filter]);
         binding->mag_filter = mag_filter;
     }
     if (lod_bias != binding->lod_bias) {
         binding->lod_bias = lod_bias;
-        glTexParameterf(binding->gl_target, GL_TEXTURE_LOD_BIAS,
+        (texture_param_select(r), glTexParameterf)(binding->gl_target, GL_TEXTURE_LOD_BIAS,
                         pgraph_convert_lod_bias_to_float(lod_bias));
     }
 
     /* Texture wrapping */
     assert(addru < ARRAY_SIZE(pgraph_texture_addr_gl_map));
     if (addru != binding->addru) {
-        glTexParameteri(binding->gl_target, GL_TEXTURE_WRAP_S,
+        (texture_param_select(r), glTexParameteri)(binding->gl_target, GL_TEXTURE_WRAP_S,
                         pgraph_texture_addr_gl_map[addru]);
         binding->addru = addru;
     }
@@ -247,7 +255,7 @@ static void apply_texture_parameters(PGRAPHGLState *r,
     if (dimensionality > 1) {
         if (addrv != binding->addrv) {
             assert(addrv < ARRAY_SIZE(pgraph_texture_addr_gl_map));
-            glTexParameteri(binding->gl_target, GL_TEXTURE_WRAP_T,
+            (texture_param_select(r), glTexParameteri)(binding->gl_target, GL_TEXTURE_WRAP_T,
                             pgraph_texture_addr_gl_map[addrv]);
             binding->addrv = addrv;
         }
@@ -256,7 +264,7 @@ static void apply_texture_parameters(PGRAPHGLState *r,
     if (dimensionality > 2) {
         if (addrp != binding->addrp) {
             assert(addrp < ARRAY_SIZE(pgraph_texture_addr_gl_map));
-            glTexParameteri(binding->gl_target, GL_TEXTURE_WRAP_R,
+            (texture_param_select(r), glTexParameteri)(binding->gl_target, GL_TEXTURE_WRAP_R,
                             pgraph_texture_addr_gl_map[addrp]);
             binding->addrp = addrp;
         }
@@ -265,13 +273,13 @@ static void apply_texture_parameters(PGRAPHGLState *r,
 
     if (r->supported_extensions.texture_filter_anisotropic) {
         if (r->no_fast_texture_state || binding->max_anisotropy != max_anisotropy) {
-            glTexParameterf(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+            (texture_param_select(r), glTexParameterf)(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
             binding->max_anisotropy = max_anisotropy;
             ++r->texture_state_stats.aniso_calls;
         } else ++r->texture_state_stats.aniso_skips;
         if (r->verify_texture_state && (r->texture_state_stats.aniso_skips % 4096 == 0)) {
             GLfloat actual;
-            glGetTexParameterfv(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, &actual);
+            (texture_param_select(r), glGetTexParameterfv)(binding->gl_target, GL_TEXTURE_MAX_ANISOTROPY_EXT, &actual);
             if (actual != (GLfloat)max_anisotropy) {
                 nv2a_log("Texture state MISMATCH: anisotropy expected %u got %f", max_anisotropy, actual);
                 abort();
@@ -285,7 +293,7 @@ static void apply_texture_parameters(PGRAPHGLState *r,
             /* FIXME: Color channels might be wrong order */
             GLfloat gl_border_color[4];
             pgraph_argb_pack32_to_rgba_float(border_color, gl_border_color);
-            glTexParameterfv(binding->gl_target, GL_TEXTURE_BORDER_COLOR,
+            (texture_param_select(r), glTexParameterfv)(binding->gl_target, GL_TEXTURE_BORDER_COLOR,
                              gl_border_color);
 
             binding->border_color_set = true;
@@ -379,7 +387,7 @@ void pgraph_gl_bind_textures(NV2AState *d)
             bind_guest_texture(r, i, GL_TEXTURE_3D, 0);
             continue;
         }
-        if (!r->no_fast_texture_state) select_texture_stage(r, i);
+        g_param_stage = i;
 
         uint32_t filter = pgraph_reg_r(pg, NV_PGRAPH_TEXFILTER0 + i*4);
         uint32_t address = pgraph_reg_r(pg, NV_PGRAPH_TEXADDRESS0 + i*4);
@@ -450,6 +458,8 @@ void pgraph_gl_bind_textures(NV2AState *d)
         /*
          * Check active surfaces to see if this texture was a render target
          */
+        /* Slow path (uploads, surface copies, new textures) binds on the current unit. */
+        if (!r->no_fast_texture_state) select_texture_stage(r, i);
         bool surf_to_tex = false;
         if (surface != NULL) {
             surf_to_tex = pgraph_gl_check_surface_to_texture_compatibility(
@@ -596,6 +606,7 @@ static void upload_gl_texture(GLenum gl_target,
 {
     ColorFormatInfo f = kelvin_color_format_gl_map[s.color_format];
     nv2a_profile_inc_counter(NV2A_PROF_TEX_UPLOAD);
+    g_dwp_flags |= DWP_TEX_UPLOAD;
 
     unsigned int adjusted_width = s.width;
     unsigned int adjusted_height = s.height;

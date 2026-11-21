@@ -1102,6 +1102,7 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg)
     if (binding_changed) {
         nv2a_profile_inc_counter(NV2A_PROF_SHADER_BIND);
         glUseProgram(r->shader_binding->gl_program);
+        g_dwp_flags |= DWP_PROGRAM;
     }
 
     // FIXME: Clear only the registers that are consumed by this binding.

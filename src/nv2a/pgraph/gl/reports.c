@@ -115,6 +115,9 @@ void pgraph_gl_query_free(unsigned int count, GLuint *queries)
     g_query_pool_count += count;
 }
 
+GLuint g_gl_array_buffer_bound = ~0u, g_gl_element_buffer_bound = ~0u;
+int g_gl_no_fast_buffer_bind;
+
 static int report_cache_slot(uint32_t offset)
 {
     return (offset >> 4) & (REPORT_CACHE_SIZE - 1);
@@ -126,6 +129,7 @@ static uint32_t sum_queries(PGRAPHState *pg, unsigned int count, GLuint *queries
     for (int i = 0; i < count; i++) {
         GLuint gl_query_result = 0;
         glGetQueryObjectuiv(queries[i], GL_QUERY_RESULT, &gl_query_result);
+        g_dwp_flags |= DWP_REPORT_READ;
         /* Port change: round up. At surface scale N each native pixel is N*N samples; a small
          * light/glow test quad covering only part of a pixel gave e.g. 5/9 -> 0 ("occluded"),
          * flipping between 0 and 1 as it moved and making effects flash on and off. */

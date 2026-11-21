@@ -36,7 +36,7 @@ static void release_entry(PGRAPHGLState *r, HleBufferEntry *e)
     for (unsigned i = 0; i < 16; ++i)
         if (r->vertex_attrib[i].buffer == e->buffer)
             r->vertex_attrib[i].pointer_valid = false;
-    glDeleteBuffers(1, &e->buffer);
+    glDeleteBuffers(1, &e->buffer); pgraph_gl_buffer_bindings_invalidate();
     r->hle_buffers->resident -= e->size;
     ++r->hle_buffers->evictions;
     g_free(e->shadow);
@@ -171,7 +171,7 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, uns
             glGenBuffers(1, &e->buffer);
             c->resident += size;
         }
-        glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+        pgraph_gl_bind_array_buffer(e->buffer);
         glBufferData(GL_ARRAY_BUFFER, size, source, GL_STATIC_DRAW);
         if (c->verify && c->readbacks < 32) {
             uint8_t *actual = g_malloc(size);
@@ -217,7 +217,7 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, uns
             pos = spans[i].begin; length = spans[i].end - pos;
             if (changed[i]) {
                 memcpy(e->shadow + pos, d->vram_ptr + base + pos, length);
-                glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+                pgraph_gl_bind_array_buffer(e->buffer);
                 // GL preserves ordered earlier draws when updating live storage.
                 glBufferSubData(GL_ARRAY_BUFFER, pos, length, e->shadow + pos);
                 ++c->uploads; c->bytes += length;
@@ -232,7 +232,7 @@ bool pgraph_gl_hle_buffer(NV2AState *d, unsigned slot, unsigned min_element, uns
         hwaddr pos = address - base + (uint64_t)min_element * a->stride;
         hwaddr length = (uint64_t)(max_element - min_element) * a->stride + element_size;
         uint8_t *actual = g_malloc(length);
-        glBindBuffer(GL_ARRAY_BUFFER, e->buffer);
+        pgraph_gl_bind_array_buffer(e->buffer);
         glGetBufferSubData(GL_ARRAY_BUFFER, pos, length, actual);
         ++c->checks;
         if (memcmp(e->shadow + pos, actual, length)) {

@@ -542,6 +542,52 @@ static void ui_unsquash_full_width(PGRAPHState *pg, PGRAPHGLState *r, unsigned i
     }
 }
 
+
+/* XB_DRAW_WAIT_PROBE=1 (diagnostic): time each GL draw call and record which kinds of work
+ * preceded the slow ones (flags set at the call sites, DWP_* in renderer.h). */
+unsigned g_dwp_flags;
+static int g_dwp_on = -1;
+static struct { uint64_t n, ns, slow, slow_ns, flag_all[7], flag_slow[7], flag_slow_ns[7]; int64_t t0; } g_dwp;
+
+static int64_t dwp_begin(void)
+{
+    if (g_dwp_on < 0) g_dwp_on = getenv("XB_DRAW_WAIT_PROBE") != NULL;
+    return g_dwp_on ? qemu_clock_get_ns(QEMU_CLOCK_REALTIME) : 0;
+}
+
+static void dwp_end(int64_t start, bool query)
+{
+    if (!g_dwp_on) return;
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+    uint64_t ns = now - start;
+    unsigned f = g_dwp_flags | (query ? DWP_QUERY : 0);
+    g_dwp_flags = 0;
+    bool slow = ns > 30000;
+    g_dwp.n++; g_dwp.ns += ns;
+    if (slow) { g_dwp.slow++; g_dwp.slow_ns += ns; }
+    for (int i = 0; i < 7; i++) {
+        if (!(f & (1u << i))) continue;
+        g_dwp.flag_all[i]++;
+        if (slow) { g_dwp.flag_slow[i]++; g_dwp.flag_slow_ns[i] += ns; }
+    }
+    if (!g_dwp.t0) g_dwp.t0 = now;
+    if (now - g_dwp.t0 >= 2000000000LL) {
+        static const char *names[7] = { "program", "fb", "tex_upload", "query", "surf_to_tex", "surf_upload", "report_read" };
+        char buf[512]; int o = 0;
+        for (int i = 0; i < 7; i++) {
+            o += snprintf(buf + o, sizeof buf - o, " %s %llu/%llu (%.0f ms)", names[i],
+                          (unsigned long long)g_dwp.flag_slow[i], (unsigned long long)g_dwp.flag_all[i],
+                          g_dwp.flag_slow_ns[i] / 1e6);
+        }
+        nv2a_log("draw wait: %llu draws %.0f ms, slow(>30us) %llu %.0f ms | slow/all:%s",
+                 (unsigned long long)g_dwp.n, g_dwp.ns / 1e6, (unsigned long long)g_dwp.slow,
+                 g_dwp.slow_ns / 1e6, buf);
+        memset(&g_dwp, 0, sizeof g_dwp);
+        g_dwp.t0 = now;
+    }
+}
+#define DWP(call) do { int64_t dwp_t = dwp_begin(); call; dwp_end(dwp_t, pg->zpass_pixel_count_enable); } while (0)
+
 void pgraph_gl_flush_draw(NV2AState *d)
 {
     PROF_SCOPE(PS_FLUSH_DRAW);
@@ -565,10 +611,22 @@ void pgraph_gl_flush_draw(NV2AState *d)
                                       pg->draw_arrays_max_count - 1,
                                       false, 0,
                                       pg->draw_arrays_max_count - 1);
-        glMultiDrawArrays(r->shader_binding->gl_primitive_mode,
-                          pg->draw_arrays_start,
-                          pg->draw_arrays_count,
-                          pg->draw_arrays_length);
+        /* Port change: NVIDIA's GL driver handled glMultiDrawArrays on a slow path (~90 us per
+         * call on the renderer thread in heavy arenas). Separate glDrawArrays calls are cheap.
+         * XB_MULTI_DRAW=1 restores glMultiDrawArrays. */
+        static int multi_draw = -1;
+        if (multi_draw < 0) multi_draw = getenv("XB_MULTI_DRAW") != NULL;
+        if (multi_draw) {
+            DWP(glMultiDrawArrays(r->shader_binding->gl_primitive_mode,
+                              pg->draw_arrays_start,
+                              pg->draw_arrays_count,
+                              pg->draw_arrays_length));
+        } else {
+            DWP(for (unsigned int i = 0; i < pg->draw_arrays_length; i++) {
+                glDrawArrays(r->shader_binding->gl_primitive_mode,
+                             pg->draw_arrays_start[i], pg->draw_arrays_count[i]);
+            });
+        }
     } else if (pg->inline_elements_length) {
         NV2A_GL_DPRINTF(false, "Inline Elements");
         nv2a_profile_inc_counter(NV2A_PROF_INLINE_ELEMENTS);
@@ -597,7 +655,7 @@ void pgraph_gl_flush_draw(NV2AState *d)
 
         LruNode *node = lru_lookup(&r->element_cache, h, &k);
         VertexLruNode *found = container_of(node, VertexLruNode, node);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, found->gl_buffer);
+        pgraph_gl_bind_element_buffer(found->gl_buffer);
         if (!found->initialized) {
             nv2a_profile_inc_counter(NV2A_PROF_GEOM_BUFFER_UPDATE_4);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -607,9 +665,9 @@ void pgraph_gl_flush_draw(NV2AState *d)
         } else {
             nv2a_profile_inc_counter(NV2A_PROF_GEOM_BUFFER_UPDATE_4_NOTDIRTY);
         }
-        glDrawElements(r->shader_binding->gl_primitive_mode,
+        DWP(glDrawElements(r->shader_binding->gl_primitive_mode,
                        pg->inline_elements_length, GL_UNSIGNED_INT,
-                       (void *)0);
+                       (void *)0));
     } else if (pg->inline_buffer_length) {
         NV2A_GL_DPRINTF(false, "Inline Buffer");
         nv2a_profile_inc_counter(NV2A_PROF_INLINE_BUFFERS);
@@ -624,7 +682,7 @@ void pgraph_gl_flush_draw(NV2AState *d)
             VertexAttribute *attr = &pg->vertex_attributes[i];
             if (attr->inline_buffer_populated) {
                 nv2a_profile_inc_counter(NV2A_PROF_GEOM_BUFFER_UPDATE_3);
-                glBindBuffer(GL_ARRAY_BUFFER, r->gl_inline_buffer[i]);
+                pgraph_gl_bind_array_buffer(r->gl_inline_buffer[i]);
                 glBufferData(GL_ARRAY_BUFFER,
                              pg->inline_buffer_length * sizeof(float) * 4,
                              attr->inline_buffer, GL_STREAM_DRAW);
@@ -641,16 +699,16 @@ void pgraph_gl_flush_draw(NV2AState *d)
             }
         }
 
-        glDrawArrays(r->shader_binding->gl_primitive_mode,
-                     0, pg->inline_buffer_length);
+        DWP(glDrawArrays(r->shader_binding->gl_primitive_mode,
+                     0, pg->inline_buffer_length));
     } else if (pg->inline_array_length) {
         NV2A_GL_DPRINTF(false, "Inline Array");
         nv2a_profile_inc_counter(NV2A_PROF_INLINE_ARRAYS);
 
         unsigned int index_count = pgraph_gl_bind_inline_array(d);
         ui_unsquash_full_width(pg, r, index_count);
-        glDrawArrays(r->shader_binding->gl_primitive_mode,
-                     0, index_count);
+        DWP(glDrawArrays(r->shader_binding->gl_primitive_mode,
+                     0, index_count));
     } else {
         NV2A_GL_DPRINTF(true, "EMPTY NV097_SET_BEGIN_END");
         NV2A_UNCONFIRMED("EMPTY NV097_SET_BEGIN_END");

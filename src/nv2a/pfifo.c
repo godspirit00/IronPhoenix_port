@@ -461,6 +461,8 @@ void *pfifo_thread(void *arg)
     {
         extern __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
         nv2a_log("pfifo (GPU) thread: tid %lu", GetCurrentThreadId());
+        extern void nv2a_gl_call_profile_set_thread(void);
+        nv2a_gl_call_profile_set_thread();
     }
     pgraph_init_thread(d);
     g_nv2a_renderer_ready = true;

@@ -116,7 +116,7 @@ static void update_memory_buffer(NV2AState *d, hwaddr addr, hwaddr size,
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
-    if (r->no_fast_vertex) glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
+    if (r->no_fast_vertex) pgraph_gl_bind_array_buffer(r->gl_memory_buffer);
 
     hwaddr end = TARGET_PAGE_ALIGN(addr + size);
     addr &= TARGET_PAGE_MASK;
@@ -143,7 +143,7 @@ void pgraph_gl_update_entire_memory_buffer(NV2AState *d)
     PGRAPHState *pg = &d->pgraph;
     PGRAPHGLState *r = pg->gl_renderer_state;
 
-    glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
+    pgraph_gl_bind_array_buffer(r->gl_memory_buffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, memory_region_size(d->vram), d->vram_ptr);
 }
 
@@ -162,7 +162,7 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
     /* All active attributes in this path source the same buffer. Bind once;
      * dirty-range uploads below must still run even when pointers are cached. */
     if (!r->no_fast_vertex) {
-        glBindBuffer(GL_ARRAY_BUFFER, inline_data ? r->gl_inline_array_buffer : r->gl_memory_buffer);
+        pgraph_gl_bind_array_buffer(inline_data ? r->gl_inline_array_buffer : r->gl_memory_buffer);
     }
 
     if (inline_data) {
@@ -238,7 +238,7 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
 
         hwaddr start = 0;
         if (inline_data) {
-            if (r->no_fast_vertex) glBindBuffer(GL_ARRAY_BUFFER, r->gl_inline_array_buffer);
+            if (r->no_fast_vertex) pgraph_gl_bind_array_buffer(r->gl_inline_array_buffer);
             attrib_data_addr = attr->inline_array_offset;
             stride = inline_stride;
         } else {
@@ -252,7 +252,7 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
             start = attrib_data_addr + min_element * stride;
             if (!pgraph_gl_hle_buffer(d, i, min_element, max_element, attrib_data_addr,
                                      &source_buffer, &pointer_offset)) {
-                if (r->hle_buffers) glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
+                if (r->hle_buffers) pgraph_gl_bind_array_buffer(r->gl_memory_buffer);
                 update_memory_buffer(d, start, num_elements * stride,
                                      updated_memory_buffer);
                 updated_memory_buffer = true;
@@ -280,7 +280,7 @@ void pgraph_gl_bind_vertex_attributes(NV2AState *d, unsigned int min_element,
         }
 
         if (inline_data) pointer_offset = attrib_data_addr;
-        if (r->hle_buffers) glBindBuffer(GL_ARRAY_BUFFER, source_buffer);
+        if (r->hle_buffers) pgraph_gl_bind_array_buffer(source_buffer);
         pgraph_gl_attribute_pointer(r, i, source_buffer,
             gl_count, gl_type, needs_conversion ? GL_FALSE : gl_normalize,
             stride, pointer_offset, needs_conversion);
@@ -319,7 +319,7 @@ unsigned int pgraph_gl_bind_inline_array(NV2AState *d)
     NV2A_DPRINTF("draw inline array %d, %d\n", vertex_size, index_count);
 
     nv2a_profile_inc_counter(NV2A_PROF_GEOM_BUFFER_UPDATE_2);
-    glBindBuffer(GL_ARRAY_BUFFER, r->gl_inline_array_buffer);
+    pgraph_gl_bind_array_buffer(r->gl_inline_array_buffer);
     GLsizeiptr buffer_size = index_count * vertex_size;
     glBufferData(GL_ARRAY_BUFFER, buffer_size, NULL, GL_STREAM_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, buffer_size, pg->inline_array);
@@ -370,12 +370,12 @@ void pgraph_gl_init_buffers(NV2AState *d)
     glGenBuffers(1, &r->gl_inline_array_buffer);
 
     glGenBuffers(1, &r->gl_memory_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, r->gl_memory_buffer);
+    pgraph_gl_bind_array_buffer(r->gl_memory_buffer);
     glBufferData(GL_ARRAY_BUFFER, memory_region_size(d->vram),
                  NULL, GL_DYNAMIC_DRAW);
 
     glGenVertexArrays(1, &r->gl_vertex_array);
-    glBindVertexArray(r->gl_vertex_array);
+    glBindVertexArray(r->gl_vertex_array); pgraph_gl_buffer_bindings_invalidate();
     pgraph_gl_hle_buffers_init(d);
 
     assert(!nv2a_gl_debug() || glGetError() == GL_NO_ERROR);
@@ -390,19 +390,19 @@ void pgraph_gl_finalize_buffers(PGRAPHState *pg)
     for (int i = 0; i < element_cache_size; i++) {
         element_cache_buffers[i] = r->element_cache_entries[i].gl_buffer;
     }
-    glDeleteBuffers(element_cache_size, element_cache_buffers);
+    glDeleteBuffers(element_cache_size, element_cache_buffers); pgraph_gl_buffer_bindings_invalidate();
     lru_flush(&r->element_cache);
 
     g_free(r->element_cache_entries);
     r->element_cache_entries = NULL;
 
-    glDeleteBuffers(NV2A_VERTEXSHADER_ATTRIBUTES, r->gl_inline_buffer);
+    glDeleteBuffers(NV2A_VERTEXSHADER_ATTRIBUTES, r->gl_inline_buffer); pgraph_gl_buffer_bindings_invalidate();
     memset(r->gl_inline_buffer, 0, sizeof(r->gl_inline_buffer));
 
-    glDeleteBuffers(1, &r->gl_inline_array_buffer);
+    glDeleteBuffers(1, &r->gl_inline_array_buffer); pgraph_gl_buffer_bindings_invalidate();
     r->gl_inline_array_buffer = 0;
 
-    glDeleteBuffers(1, &r->gl_memory_buffer);
+    glDeleteBuffers(1, &r->gl_memory_buffer); pgraph_gl_buffer_bindings_invalidate();
     r->gl_memory_buffer = 0;
 
     glDeleteVertexArrays(1, &r->gl_vertex_array);

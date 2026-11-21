@@ -449,6 +449,19 @@ static DWORD WINAPI vblank_thread(void *arg)
 /* ---------------------------------------------------------------- dirty tracking */
 #define VRAM_PAGES (128u * 1024 * 1024 / 4096)
 static uint8_t g_dirty[DIRTY_MEMORY_NUM][VRAM_PAGES];
+/* Port change: bumped (under g_dirty_lock) whenever any page is marked dirty. A range that was
+ * clean for a client at (kick epoch, generation) is still clean while both are unchanged, so
+ * repeated per-draw checks of the same render target or vertex range skip the page loops.
+ * XB_NO_DIRTY_MEMO=1 disables the memo. */
+static uint32_t g_dirty_gen;
+static int g_dirty_memo_off = -1;
+#define DIRTY_MEMO_SIZE 1024
+static struct { hwaddr addr, size; uint32_t epoch, gen; uint8_t client, valid; } g_dirty_memo[DIRTY_MEMO_SIZE];
+static unsigned dirty_memo_slot(hwaddr addr, hwaddr size, unsigned client)
+{
+    uint64_t h = (uint64_t)addr * 0x9E3779B97F4A7C15ull ^ (uint64_t)size * 0xC2B2AE3D27D4EB4Full ^ client;
+    return (unsigned)(h >> 40) & (DIRTY_MEMO_SIZE - 1);
+}
 #include "range_versions.h"
 static uint64_t g_content_pages[VRAM_PAGES];
 static NvRangeVersions g_content_versions = {0, g_content_pages, VRAM_PAGES};
@@ -481,6 +494,7 @@ static void sync_run(uint32_t first, uint32_t end_page)
                 g_dirty[c][page] = 1;
             }
         }
+        if (count) g_dirty_gen++;
     }
 }
 
@@ -568,6 +582,17 @@ bool memory_region_test_and_clear_dirty(MemoryRegion *mr, hwaddr addr, hwaddr si
     if (mr != &g_vram || !size) {
         return false;
     }
+    if (g_dirty_memo_off < 0) g_dirty_memo_off = getenv("XB_NO_DIRTY_MEMO") != NULL;
+    uint32_t epoch = __atomic_load_n(&g_nv2a_kick_epoch, __ATOMIC_SEQ_CST);
+    unsigned slot = dirty_memo_slot(addr, size, client);
+    if (!g_dirty_memo_off) {
+        AcquireSRWLockShared(&g_dirty_lock);
+        bool clean = g_dirty_memo[slot].valid && g_dirty_memo[slot].addr == addr && g_dirty_memo[slot].size == size &&
+                     g_dirty_memo[slot].client == client && g_dirty_memo[slot].epoch == epoch &&
+                     g_dirty_memo[slot].gen == g_dirty_gen;
+        ReleaseSRWLockShared(&g_dirty_lock);
+        if (clean) return false;
+    }
     nv2a_dirty_sync_range(addr, size);
     bool dirty = false;
     uint32_t first = (uint32_t)(addr >> 12), last = (uint32_t)((addr + size - 1) >> 12);
@@ -578,6 +603,13 @@ bool memory_region_test_and_clear_dirty(MemoryRegion *mr, hwaddr addr, hwaddr si
             g_dirty[client][p] = 0;
         }
     }
+    /* The range is now clean for this client as of the epoch read before the sync. */
+    g_dirty_memo[slot].addr = addr;
+    g_dirty_memo[slot].size = size;
+    g_dirty_memo[slot].client = client;
+    g_dirty_memo[slot].epoch = epoch;
+    g_dirty_memo[slot].gen = g_dirty_gen;
+    g_dirty_memo[slot].valid = 1;
     ReleaseSRWLockExclusive(&g_dirty_lock);
     return dirty;
 }
@@ -613,6 +645,7 @@ void memory_region_set_client_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size, 
     for (uint32_t p = first; p <= last && p < VRAM_PAGES; p++) {
         g_dirty[client][p] = 1;
     }
+    g_dirty_gen++;
     ReleaseSRWLockExclusive(&g_dirty_lock);
 }
 
@@ -630,6 +663,7 @@ void memory_region_set_dirty(MemoryRegion *mr, hwaddr addr, hwaddr size)
             g_dirty[c][p] = 1;
         }
     }
+    g_dirty_gen++;
     ReleaseSRWLockExclusive(&g_dirty_lock);
 }
 

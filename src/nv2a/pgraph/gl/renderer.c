@@ -52,6 +52,8 @@ static void pgraph_gl_init(NV2AState *d, Error **errp)
 
     /* fire up opengl */
     glo_set_current(g_nv2a_context_render);
+    pgraph_gl_buffer_bindings_invalidate();
+    g_gl_no_fast_buffer_bind = getenv("XB_NO_FAST_BUFFER_BIND") != NULL;
 
 #if DEBUG_NV2A_GL
     gl_debug_initialize();
@@ -87,6 +89,8 @@ static void pgraph_gl_finalize(NV2AState *d)
     PGRAPHState *pg = &d->pgraph;
 
     glo_set_current(g_nv2a_context_render);
+    pgraph_gl_buffer_bindings_invalidate();
+    g_gl_no_fast_buffer_bind = getenv("XB_NO_FAST_BUFFER_BIND") != NULL;
 
     pgraph_gl_finalize_surfaces(pg);
     pgraph_gl_finalize_shaders(pg);
@@ -102,10 +106,30 @@ static void pgraph_gl_finalize(NV2AState *d)
     pg->gl_renderer_state = NULL;
 }
 
+/* Port change: xemu waited for the GPU to finish the whole frame at every flip (glFinish), so
+ * the renderer thread and the GPU never overlapped (~4.5 ms per frame in heavy arenas). GL keeps
+ * commands ordered, so the stall only has to bound how far ahead we run: wait for the PREVIOUS
+ * flip's fence (one frame in flight). XB_FLIP_STALL=finish restores glFinish. */
 static void pgraph_gl_flip_stall(NV2AState *d)
 {
     NV2A_GL_DFRAME_TERMINATOR();
-    glFinish();
+    static int finish = -1;
+    static GLsync previous;
+    if (finish < 0) {
+        const char *m = getenv("XB_FLIP_STALL");
+        finish = m && !strcmp(m, "finish");
+    }
+    if (finish) {
+        glFinish();
+        return;
+    }
+    GLsync current = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    glFlush();
+    if (previous) {
+        glClientWaitSync(previous, 0, 1000000000ull);
+        glDeleteSync(previous);
+    }
+    previous = current;
 }
 
 static void pgraph_gl_flush(NV2AState *d)
