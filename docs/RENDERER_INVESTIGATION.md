@@ -175,3 +175,157 @@ As an architectural reference, Cxbx's
 [D3D8-to-D3D9 implementation](https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/blob/master/src/core/hle/D3D8/Direct3D9/Direct3D9.cpp)
 also has separate resource, shader, render-state and pushbuffer translation.
 No implementation code from that project was imported here.
+
+## Firm-60 investigation (2026-11-21)
+
+At 60 fps the port has 16.67 ms per frame. In the most demanding sampled
+OpenGL scenes, the serial PFIFO/PGRAPH graphics worker spent most of its time
+in draw setup and submission. Night Demon Warship reproduced this without
+surface transfers or a recurrence of the earlier owned-buffer cache thrash.
+
+The runs below used the Ryzen 5 3600 and RTX 2070 (NVIDIA 617.42), OpenGL,
+60 Hz guest vblank, `--novsync`, the four HLE switches from
+`run-hle-buffers.cmd`, exact occlusion and the existing shader cache. Each used the
+existing input script and checked the opened arena scene. Screenshots and
+validation queries were disabled during the timed runs. Enemy behavior and
+camera workload can differ between runs. The FPS counter reports a recent
+quarter second every two seconds, so its minimum differs from an individual
+frame time or an average over the whole run.
+
+### Warship reproduction
+
+`scratch/perf/firm60-warship-scale3/` used the regular build (commit `1deb0eb`,
+SHA-256 `aac4c23e522aab3ef5d318e39920fc0a7142700779f76c3e01cb24464581a4e0`),
+with CPU scopes and sampled GPU timestamps. At scale 3 (1920×1440 internal),
+the 115–173 s window recorded 30 / 49.34 / 60 fps min/mean/max. The slower
+stretch ran at roughly 30–35 fps and recovered as the draw count fell.
+At 128.25 s the 30 fps reading coincided with 1,539 draws in the last
+completed render frame and 89,863 draw begins in the preceding two seconds.
+In that interval the worker took 1,910 ms inside the pusher, including
+1,534 ms inside draw begin and end, with no surface downloads or uploads.
+The GL presenter sync scope took 21 ms and the combined report processing
+scope took 58 ms, even with 10,089 exact result reads. The sampled GPU spans
+can include idle gaps and dependencies and should not be scaled into a
+GPU frame time. Compilations during the match were occasional.
+
+The separate trace executable records exact emulated display flip gaps,
+render-ready gaps, per-frame draw counts, and the existing `glFinish` wall
+time. It groups 30 entries per log line and keeps GPU timestamp queries off.
+The graphics worker is identified by the thread emitting `firm60 ready`.
+External samples of Windows thread CPU time exclude time asleep in a wait.
+The regular `build/ironphoenix.exe` was left intact.
+
+At scale 3 in the 109–150 s window, the trace recorded 1,639 flips (39.96
+per second). The median gap was 27.36 ms, the 95th percentile was 35.53 ms
+and the 99th was 40.95 ms.
+997 flips took over 20 ms. The 925 render-ready intervals with 1,200–1,599
+draws had a 30.26 ms median gap and only 1.40 ms average in `glFinish`.
+The graphics worker used roughly 86–94% of one logical CPU across sampled
+two-second combat intervals before the draw count dropped. This identifies
+a CPU throughput bottleneck that includes renderer code and graphics driver
+work. It cannot attribute all GPU work or all scheduling time to a single API.
+
+The native-resolution run (scale 1, 640×480) still missed 60 fps. Compare the
+same draw-count range so the scale-3 recovery as the camera view changes
+does not hide the heavy-frame cost:
+
+| Warship render-ready intervals with 1,200–1,599 draws | Count | Mean draws | Median gap | P95 gap | Mean `glFinish` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Scale 3 | 925 | 1,430 | 30.26 ms | 37.21 ms | 1.40 ms |
+| Scale 1 | 1,214 | 1,394 | 25.23 ms | 31.69 ms | 0.81 ms |
+
+Over 99% of intervals in this draw-count range exceeded 20 ms at both scales.
+The scale-1 worker used roughly 83–95% of one logical CPU in two-second
+samples. Lower resolution reduced the same class of frame's cost in these
+runs, but the different views and effects prevent a clean isolation of GPU
+fill cost through this comparison. Prior screenshots of this route in
+`texture-state-special-night-demon-warship` show that the deck view is enough
+to cause the heavy workload after spawn, even before the player engages a bot.
+The camera turns along the deck later in that route as the draw count falls.
+
+The 109–135 s control (`firm60-trace-warship-no-scopes`) disabled the per-draw
+CPU scopes and GPU timestamp sampling. It still measured 33.16 flips/s, with
+a 29.60 ms median flip gap and only two of 862 flips at or below 20 ms. The
+815 frames in the heavy draw-count range averaged 1,468 draws and had a
+29.80 ms median render-ready gap. Profiler overhead cannot account for the
+missed 60 fps target in this scene.
+
+### Earlier arena results reclassified
+
+The first slow Castle Entrance sample (`multimap-continuous`, 750.20 s,
+18 fps) had 4,560 draw batches in the last render frame and 1,942 ms of
+pusher work in two seconds. The screenshot at 750.234 s (`shot_0149.bmp`)
+shows the pre-spawn scoreboard and the arena overview. The screenshot at
+755.234 s (`shot_0150.bmp`) shows the player in the match. After spawn, the
+754–779 s samples ranged from 57 to 61 fps in that run. The overview is a
+real performance case, but the 18 fps reading did not measure active combat.
+The fresh `firm60-trace-castle3` run reproduced it in the 94–108 s window.
+159 heavy intervals averaged 4,506 draws, had a 52.05 ms median render-ready
+gap, and spent 1.54 ms on average in the final `glFinish`. Another 337 frames
+in that window, with 900–1,199 draws, had a 16.63 ms median gap. This confirms
+that the overview's high draw count can overwhelm the same graphics worker.
+
+The fresh Castle run also dropped to 51 fps after spawn, with a 20.93 ms
+95th-percentile flip gap over 109–150 s. The 120.19 s and 136.19 s samples had
+nearly the same two-second draw counts (118,805 and 117,958). Draw-end time
+rose from 241 to 749 ms, while vertex binding rose from 199 to 274 ms within
+that scope. The worker's CPU use rose to about 95% of one logical CPU. Draw
+cost as well as draw count matters. The current scopes do not distinguish
+index scanning and hashing, buffer work and driver cost inside that increase.
+
+Other scene-verified windows in the same session show a similar load pattern.
+The table pairs each quarter-second FPS reading with timings from the preceding
+two-second interval. It does not establish that every sample was active combat.
+
+| Arena | Lowest sampled fps | Last frame draws | Pusher ms / 2 s | Draw begin + end ms / 2 s |
+| --- | ---: | ---: | ---: | ---: |
+| Summoning Altar | 45 | 1,113 | 1,865 | 1,334 |
+| Buddha's Cave | 44 | 1,028 | 1,894 | 1,380 |
+| Dragon Valley | 39 | 1,768 | 1,886 | 1,450 |
+| Training Square | 39 | 1,602 | 1,912 | 1,448 |
+| Thousand Bone Tomb | 37 | 1,836 | 1,902 | 1,448 |
+| Castle Entrance (spectator) | 18 | 4,560 | 1,942 | 1,500 |
+
+No surface downloads were recorded in these intervals. The draw scopes are
+included in the pusher scope. Vertex binding sits inside draw end, and shader,
+texture and surface setup mostly sit inside draw begin. Adding nested scopes
+would double-count the time. A blocking report counter records the number of
+reads, regardless of how long the driver takes to return each result.
+
+### Resume point
+
+The HLE indexed and resource paths replace parts of the Xbox command and
+vertex setup, but still run normal GL draw preparation and submission for
+each packet. A backend change alone would leave that high per-draw workload.
+The earlier Vulkan investigation above found additional waits and transfers on
+that implementation. The new data does not establish the gains from a full
+D3D8 replacement or predict FPS on the GTX 1060, Steam Deck or Intel HD 530.
+
+Use Warship's deck view and both Castle views to reproduce the measured
+costs. The next profile should split GL draw-end time into index scan/hash,
+buffer updates, and driver calls, then group costs by draw or pass type.
+Select a change based on that breakdown. Use the scene-verified multi-map
+routes with exact flip timing as a separate acceptance check, including
+spectator views, busy combat and map transitions. The existing 5 fps floor
+in the map runner only catches catastrophic failures.
+
+Raw logs and JSON reports are in `scratch/perf/firm60-*`. The trace executable
+in `scratch/firm60-trace/ironphoenix.exe` has SHA-256
+`b86d0630be06c00b2d34ee09e7b8c86172cd843b49f796e8bcbe7ddea861a856`.
+`scratch/build_firm60_trace.py` rebuilds it from the regular Vulkan-enabled
+build objects, changing only the isolated copies of the profile and GL
+renderer source files. The timing records can be read with
+`python scratch/firm60_analyze.py LOG START END`. The thread samples are in
+`scratch/firm60-thread-samples.csv` and are summarized by
+`python scratch/firm60_thread_summary.py`.
+
+Example repeat with the regular build from the repository root:
+
+```powershell
+python tools/map_routes.py night-demon-warship --output scratch/firm60-warship.txt
+python tools/perf_run.py --tag warship-repro --script scratch/firm60-warship.txt --expect-scene sw01 --hz 60 --scale 3 --seconds 174 --start 115 --shots 0 --hle-up 1 --hle-indexed 1 --hle-resources 1 --hle-buffers 1
+```
+
+The scope and flip measurements are for the emulated display pipeline.
+Desktop presentation timing with normal vsync is a separate measurement.
+This investigation did not change the gameplay build or driver settings.

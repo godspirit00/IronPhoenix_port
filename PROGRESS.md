@@ -1,6 +1,13 @@
 # Iron Phoenix native PC port — progress log
 
 ## Goal
+Firm-60 diagnosis (2026-11-21): the busiest OpenGL scenes saturate the serial
+graphics worker. Night Demon Warship's heavy frames took about 30 ms with
+roughly 1,400 draw batches per frame. The old Castle Entrance 18 fps sample
+was on the pre-spawn spectator view, which submitted over 4,500 draw batches
+in one frame. See the latest measurements and resume notes in
+[docs/RENDERER_INVESTIGATION.md](docs/RENDERER_INVESTIGATION.md#firm-60-investigation-2026-11-21).
+
 Desktop controls checkpoint (2026-11-15): gameplay-only mouse look and requested
 mouse/button/modifier mappings are implemented. Enter confirms menus; Esc backs
 out; either pauses gameplay. Held-key context/focus latches and an Alt+Enter guard
