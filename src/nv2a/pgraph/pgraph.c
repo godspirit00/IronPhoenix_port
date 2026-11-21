@@ -2110,7 +2110,47 @@ DEF_METHOD_INC(NV097, SET_VIEWPORT_SCALE)
     pg->vsh_constants_dirty[NV_IGRAPH_XF_XFCTX_VPSCL] = true;
 }
 
-DEF_METHOD_INC(NV097, SET_TRANSFORM_PROGRAM)
+/* Port change: bulk handlers for the hottest multi-word methods (vertex program and constant
+ * uploads, 16-bit index lists) process a whole run of words in one loop instead of one handler
+ * call per word. XB_NO_BULK_METHODS=1 restores the per-word path. */
+static int g_bulk_methods = -1;
+static bool bulk_methods(void)
+{
+    if (g_bulk_methods < 0) g_bulk_methods = getenv("XB_NO_BULK_METHODS") == NULL;
+    return g_bulk_methods;
+}
+
+DEF_METHOD_INT(NV097, SET_TRANSFORM_PROGRAM);
+DEF_METHOD(NV097, SET_TRANSFORM_PROGRAM)
+{
+    if (inc && bulk_methods()) {
+        size_t count = MIN(num_words_available,
+                           (METHOD_RANGE_END_NAME(NV097, SET_TRANSFORM_PROGRAM) - method) / 4);
+        unsigned slot = (method - NV097_SET_TRANSFORM_PROGRAM) / 4;
+        int program_load = PG_GET_MASK(NV_PGRAPH_CHEOPS_OFFSET,
+                                       NV_PGRAPH_CHEOPS_OFFSET_PROG_LD_PTR);
+        int start_load = program_load;
+        for (size_t i = 0; i < count; i++, slot++) {
+            assert(program_load < NV2A_MAX_TRANSFORM_PROGRAM_LENGTH);
+            uint32_t v = ldl_le_p(parameters + i);
+            if (pg->program_data[program_load][slot % 4] != v) {
+                pg->program_data[program_load][slot % 4] = v;
+                pg->program_data_dirty = true;
+            }
+            if (slot % 4 == 3) program_load++;
+        }
+        if (program_load != start_load) {
+            PG_SET_MASK(NV_PGRAPH_CHEOPS_OFFSET,
+                        NV_PGRAPH_CHEOPS_OFFSET_PROG_LD_PTR, program_load);
+        }
+        *num_words_consumed = count;
+        return;
+    }
+    pgraph_method_inc(METHOD_FUNC_NAME_INT(NV097, SET_TRANSFORM_PROGRAM),
+                      METHOD_RANGE_END_NAME(NV097, SET_TRANSFORM_PROGRAM),
+                      METHOD_HANDLER_ARGS);
+}
+DEF_METHOD_INT(NV097, SET_TRANSFORM_PROGRAM)
 {
     int slot = (method - NV097_SET_TRANSFORM_PROGRAM) / 4;
 
@@ -2131,7 +2171,35 @@ DEF_METHOD_INC(NV097, SET_TRANSFORM_PROGRAM)
     }
 }
 
-DEF_METHOD_INC(NV097, SET_TRANSFORM_CONSTANT)
+DEF_METHOD_INT(NV097, SET_TRANSFORM_CONSTANT);
+DEF_METHOD(NV097, SET_TRANSFORM_CONSTANT)
+{
+    if (inc && bulk_methods()) {
+        size_t count = MIN(num_words_available,
+                           (METHOD_RANGE_END_NAME(NV097, SET_TRANSFORM_CONSTANT) - method) / 4);
+        unsigned slot = (method - NV097_SET_TRANSFORM_CONSTANT) / 4;
+        int const_load = PG_GET_MASK(NV_PGRAPH_CHEOPS_OFFSET,
+                                     NV_PGRAPH_CHEOPS_OFFSET_CONST_LD_PTR);
+        int start_load = const_load;
+        for (size_t i = 0; i < count; i++, slot++) {
+            assert(const_load < NV2A_VERTEXSHADER_CONSTANTS);
+            uint32_t v = ldl_le_p(parameters + i);
+            pg->vsh_constants_dirty[const_load] |= (v != pg->vsh_constants[const_load][slot % 4]);
+            pg->vsh_constants[const_load][slot % 4] = v;
+            if (slot % 4 == 3) const_load++;
+        }
+        if (const_load != start_load) {
+            PG_SET_MASK(NV_PGRAPH_CHEOPS_OFFSET,
+                        NV_PGRAPH_CHEOPS_OFFSET_CONST_LD_PTR, const_load);
+        }
+        *num_words_consumed = count;
+        return;
+    }
+    pgraph_method_inc(METHOD_FUNC_NAME_INT(NV097, SET_TRANSFORM_CONSTANT),
+                      METHOD_RANGE_END_NAME(NV097, SET_TRANSFORM_CONSTANT),
+                      METHOD_HANDLER_ARGS);
+}
+DEF_METHOD_INT(NV097, SET_TRANSFORM_CONSTANT)
 {
     int slot = (method - NV097_SET_TRANSFORM_CONSTANT) / 4;
     int const_load = PG_GET_MASK(NV_PGRAPH_CHEOPS_OFFSET,
@@ -2874,7 +2942,30 @@ void pgraph_check_within_begin_end_block(PGRAPHState *pg)
     }
 }
 
-DEF_METHOD_NON_INC(NV097, ARRAY_ELEMENT16)
+DEF_METHOD_INT(NV097, ARRAY_ELEMENT16);
+DEF_METHOD(NV097, ARRAY_ELEMENT16)
+{
+    extern bool g_hle_index_verify_active;
+    if (!inc && bulk_methods() && !g_hle_index_verify_active) {
+        pgraph_check_within_begin_end_block(pg);
+        if (pg->draw_arrays_length) {
+            pgraph_expand_draw_arrays(d);
+        }
+        size_t count = num_words_available;
+        assert(pg->inline_elements_length + 2 * count < NV2A_MAX_BATCH_LENGTH);
+        uint32_t *out = pg->inline_elements + pg->inline_elements_length;
+        for (size_t i = 0; i < count; i++) {
+            uint32_t v = ldl_le_p(parameters + i);
+            out[2 * i] = v & 0xFFFF;
+            out[2 * i + 1] = v >> 16;
+        }
+        pg->inline_elements_length += 2 * count;
+        *num_words_consumed = count;
+        return;
+    }
+    pgraph_method_non_inc(METHOD_FUNC_NAME_INT(NV097, ARRAY_ELEMENT16), METHOD_HANDLER_ARGS);
+}
+DEF_METHOD_INT(NV097, ARRAY_ELEMENT16)
 {
     pgraph_check_within_begin_end_block(pg);
 

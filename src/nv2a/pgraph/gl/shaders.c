@@ -1089,7 +1089,15 @@ static void update_shader_uniforms(PGRAPHState *pg, ShaderBinding *binding)
 
     /* Some uniform arrays contain inactive lanes which the generators leave
      * untouched. Keep those deterministic before comparing/uploading arrays. */
-    VshUniformValues vsh_values = {0};
+    /* c[] (3 KB, the first field) is handled by update_vsh_constants on the cached path, so
+     * only the remaining fields need deterministic zeroed lanes. */
+    VshUniformValues vsh_values;
+    if (cache) {
+        memset((char *)&vsh_values + offsetof(VshUniformValues, clipRange), 0,
+               sizeof(vsh_values) - offsetof(VshUniformValues, clipRange));
+    } else {
+        memset(&vsh_values, 0, sizeof(vsh_values));
+    }
     VshUniformLocs vsh_locs;
     memcpy(vsh_locs, binding->uniform_locs.vsh, sizeof(vsh_locs));
     if (cache) {

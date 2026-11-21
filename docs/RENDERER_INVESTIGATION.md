@@ -329,3 +329,85 @@ python tools/perf_run.py --tag warship-repro --script scratch/firm60-warship.txt
 The scope and flip measurements are for the emulated display pipeline.
 Desktop presentation timing with normal vsync is a separate measurement.
 This investigation did not change the gameplay build or driver settings.
+
+## Driver-thread findings (2026-11-21)
+
+### Root cause
+
+NVIDIA's OpenGL driver (threaded optimization, the default) queues GL calls for its own worker
+thread. Calls that need an answer make the renderer thread wait until the worker has caught up
+(seen in samples as `GetExitCodeThread` -> `NtQueryInformationThread` polling). The wait lands
+on whatever call needs the reply, so it moved as each culprit was removed:
+`glGenQueries` -> `glMultiDrawArrays` -> `glFinish` -> `glFenceSync`. The real cost was the
+volume of GL calls the worker had to process (~1.08 M calls per 2 s on Warship) plus the
+explicit sync points. The PROF scopes (draw_begin/draw_end) included those waits, which is why
+earlier work optimised our own per-draw code without moving the frame rate.
+
+The profiler's "caller" attribution for driver time is unreliable (it takes the first in-image
+address on the stack, often a stale return address). Use the GL call profiler instead.
+
+### Tools
+
+* `XB_GL_CALL_PROFILE=1`: wrappers generated for every glad entry point
+  (`tools/gen_gl_call_profile.py` -> `src/nv2a/compat/gl_call_profile.gen.c`). Logs
+  `gl calls: total X ms / N calls | <top 16 functions by time>` every 2 s, renderer thread only.
+  It perturbs timing a little (where the driver wait lands can shift); use for attribution.
+* `--profile START,SECS` with `XB_PROFILE_GPU_ONLY=1`: samples only the renderer thread at
+  ~1 kHz (the all-thread mode gets ~20 Hz per thread).
+* `XB_DRAW_WAIT_PROBE=1`: times each draw call and records what preceded slow ones.
+
+### Changes and kill switches
+
+| Change | Kill switch |
+| --- | --- |
+| Occlusion query objects from a recycled pool (glGenQueries per draw synced, ~30 us) | `XB_NO_QUERY_POOL=1` |
+| `glDrawArrays` loop instead of `glMultiDrawArrays` (~90 us/call slow path) | `XB_MULTI_DRAW=1` |
+| Flip stall waits on the previous flip's fence, not `glFinish` (one frame in flight) | `XB_FLIP_STALL=finish` |
+| `glActiveTexture` only before unit-dependent calls (was ~6 per real bind) | `XB_NO_FAST_TEXTURE_STATE=1` (whole texture shadow) |
+| Cached `GL_ARRAY_BUFFER`/`GL_ELEMENT_ARRAY_BUFFER` bindings (invalidated on VAO switch, delete, context switch) | `XB_NO_FAST_BUFFER_BIND=1` |
+| Memo for repeated dirty checks of a range within a kick epoch (render targets: ~300 pages walked twice per draw) | `XB_NO_DIRTY_MEMO=1` |
+| `SET_TRANSFORM_PROGRAM` marks the program dirty only when a word changes (game resends it per draw; 2.7 KB ShaderState rebuilt + hashed) | none (exact) |
+| Vertex constants: per-row generations from `vsh_constants_dirty`, changed span uploaded | `XB_NO_FAST_UNIFORMS=1` |
+| Occlusion reports default to `late`: exact values written when the GPU has them; the renderer never blocks in `glGetQueryObjectuiv` | `XB_OCCLUSION=exact` |
+| Kick epoch starts when the pusher observes a new PUT (not on every CPU PUT write) | `XB_EPOCH_ON_PUT_WRITE=1` |
+
+Validation: texture-state verifier (`--texture-state-verify`) 0 mismatches over ~200k checks;
+screenshots of Warship match earlier runs (lighting, skinning, HUD, effects).
+
+### Results (RTX 2070, scale 3, ordinary settings, `perf_run.py` routes)
+
+| Scene | Before (this morning) | After |
+| --- | --- | --- |
+| Night Demon Warship heavy deck phase | 26-34 fps | 59-61 fps |
+| Castle Entrance after spawn | 51-60 fps | 59-60 fps |
+| Castle Entrance pre-spawn overview (~4,500 draws/frame) | 18 fps | 37-41 fps (CPU timing on), 41-46 without |
+
+Warship at 60 fps: ~1,460 draws/frame, renderer thread ~73% busy. Overview per draw (5.1 us):
+decode ~1.8, vertex attributes 0.85, surface update 0.63, shaders 0.58, textures 0.36,
+reports 0.4 (blocking occlusion reads), rest ~0.5.
+
+### Occlusion reports and NOP stalls
+
+The game raises ~10 software-method NOP interrupts per frame (`XB_NOP_LOG=1` lists them by
+parameter). Parameters `0x08`/`0x28` both go to case 8 of the D3D handler at 0x22ffb0, which only
+writes two RDI registers; `...0121` (once per frame) is case 1. The GPU interrupt path is ISR
+0x22fab0 -> DPC 0x230460 -> PGRAPH handler 0x230220, which sets FIFO_ACCESS=0, acknowledges, runs
+the software method, then FIFO_ACCESS=1. The `0x08` NOPs looked expensive (~0.35 ms each) only
+because the renderer held `pfifo.lock` while doing blocking exact-occlusion reads, and the guest's
+PGRAPH register writes wait for that lock. Releasing the lock fixed the NOP latency but not the
+frame rate (the renderer was still blocked in the read), so it was reverted; `late` occlusion
+removes the blocking read itself. Castle overview: exact 45-48 fps, late 50-53.
+
+Updated results with late occlusion: Castle overview 51-55 fps, Warship 59-60. First 14-arena
+matrix (before late default): all arenas mean 59-60; the only low samples were single readings
+at run end (teardown) or map load.
+
+### Next
+
+* Decode cost (pfifo/pgraph method dispatch): per-word handler overhead; bulk handlers for
+  SET_TRANSFORM_PROGRAM / SET_TRANSFORM_CONSTANT / ARRAY_ELEMENT16.
+* `GetWriteWatch` per vertex range per kick epoch (~12% on Warship): the epoch now starts when
+  the pusher observes a new PUT (several PUT writes collapse), `XB_EPOCH_ON_PUT_WRITE=1` = old.
+* Blocking occlusion reads (`glGetQueryObjectuiv`, ~7%).
+* Other machines: AMD (Deck/Windows) and Intel drivers are not threaded like NVIDIA's, but the
+  call-count reductions apply to all; needs user logs.
