@@ -75,6 +75,32 @@ static void dsp_c_run(DSPState *dsp, int cycles)
     if (dsp->save_cycles <= 0)
         return;
 
+    /* XB_DSP_PCHIST=1: count GP instructions per PC for ~20000 frames, then dump
+     * gp_pram.bin + gp_pchist.txt next to the exe once (finding hot loops / polling) */
+    static int pchist = -1;
+    static uint32_t hist[DSP_PRAM_SIZE];
+    static int hist_runs;
+    if (pchist < 0) pchist = getenv("XB_DSP_PCHIST") != NULL;
+    if (pchist == 1 && dsp->is_gp) {
+        while (dsp->save_cycles > 0) {
+            if (core->pc < DSP_PRAM_SIZE) hist[core->pc]++;
+            dsp56k_execute_instruction(core);
+            dsp->save_cycles -= core->instr_cycle;
+            core->cycle_count += core->instr_cycle;
+            if (core->is_idle) break;
+        }
+        if (++hist_runs == 20000 * 32) {
+            FILE *f = fopen("gp_pram.bin", "wb");
+            if (f) { fwrite(core->pram, 4, DSP_PRAM_SIZE, f); fclose(f); }
+            f = fopen("gp_pchist.txt", "w");
+            if (f) {
+                for (int i = 0; i < DSP_PRAM_SIZE; i++) if (hist[i]) fprintf(f, "%04x %u\n", i, hist[i]);
+                fclose(f);
+            }
+            pchist = 2;
+        }
+        return;
+    }
     while (dsp->save_cycles > 0) {
         dsp56k_execute_instruction(core);
         dsp->save_cycles -= core->instr_cycle;

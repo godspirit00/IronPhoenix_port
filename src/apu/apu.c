@@ -254,6 +254,15 @@ static void se_frame(MCPXAPUState *d)
                          (int)(d->frame_count * 1000000.0 / elapsed_us + 0.5), InterlockedExchange(&g_apu_mmio_count, 0),
                          InterlockedExchange64(&g_apu_mmio_ticks, 0) * 1000.0 / f.QuadPart, InterlockedExchange(&g_apu_mmio_slow, 0),
                          g_apu_slow_addr);
+                extern int64_t g_apu_gp_cycles, g_apu_ep_cycles;
+                nv2a_log("apu: dsp cycles/frame gp %lld ep %lld (per EP run %lld)",
+                         (long long)(g_apu_gp_cycles / (d->frame_count ? d->frame_count : 1)),
+                         (long long)(g_apu_ep_cycles / (d->frame_count ? d->frame_count : 1)),
+                         (long long)(g_apu_ep_cycles * 8 / (d->frame_count ? d->frame_count : 1)));
+            }
+            {
+                extern int64_t g_apu_gp_cycles, g_apu_ep_cycles;
+                g_apu_gp_cycles = g_apu_ep_cycles = 0;
             }
         }
         g_apu_vp_us = g_apu_dsp_us = g_apu_vp_lock_wait_us = 0;
@@ -284,9 +293,11 @@ static void se_frame(MCPXAPUState *d)
     mcpx_debug_end_frame();
 }
 
+volatile unsigned long g_apu_frame_thread; /* tid, for XB_PROFILE_APU_ONLY */
 static void *mcpx_apu_frame_thread(void *arg)
 {
     MCPXAPUState *d = (MCPXAPUState *)arg;
+    g_apu_frame_thread = GetCurrentThreadId();
     qemu_mutex_lock(&d->lock);
     while (!qatomic_read(&d->exiting)) {
         if (d->pause_requested) {
@@ -325,8 +336,12 @@ static void *mcpx_apu_frame_thread(void *arg)
             if (!g_apu_stall_start) {
                 g_apu_stall_start = now;
             } else if (now - g_apu_stall_start > 50) {
+                /* first 40, then at most one line per 5 s (long holds were invisible otherwise) */
                 static int logged;
-                if (logged++ < 40) {
+                static int64_t last_log;
+                if (logged < 40 || now - last_log >= 5000) {
+                    logged++;
+                    last_log = now;
                     nv2a_log("apu: frame thread held %lld ms: xcntmode %d fectl %08x ists %08x ien %08x",
                              (long long)(now - g_apu_stall_start), xcntmode, fectl, d->regs[NV_PAPU_ISTS], d->regs[NV_PAPU_IEN]);
                 }

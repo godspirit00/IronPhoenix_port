@@ -440,6 +440,8 @@ const MemoryRegionOps ep_ops = {
     .write = ep_write,
 };
 
+/* per-window stats for the "apu:" log line (frame thread only) */
+int64_t g_apu_gp_cycles, g_apu_ep_cycles, g_apu_gp_us, g_apu_ep_us;
 void mcpx_apu_dsp_frame(MCPXAPUState *d, float mixbins[NUM_MIXBINS][NUM_SAMPLES_PER_FRAME])
 {
     /* Write VP results to the GP DSP MIXBUF */
@@ -470,6 +472,7 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d, float mixbins[NUM_MIXBINS][NUM_SAMPLES_
             }
         } while (!dsp_get_halt_requested(d->gp.dsp) && d->gp.realtime);
         g_dbg.gp.cycles = dsp_get_cycle_count(d->gp.dsp);
+        g_apu_gp_cycles += g_dbg.gp.cycles;
 
         if ((d->monitor.point == MCPX_APU_DEBUG_MON_GP) ||
             (d->monitor.point == MCPX_APU_DEBUG_MON_GP_OR_EP && !ep_enabled)) {
@@ -501,6 +504,7 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d, float mixbins[NUM_MIXBINS][NUM_SAMPLES_
                 }
             } while (!dsp_get_halt_requested(d->ep.dsp) && d->ep.realtime);
             g_dbg.ep.cycles = dsp_get_cycle_count(d->ep.dsp);
+            g_apu_ep_cycles += g_dbg.ep.cycles;
         }
     }
 }

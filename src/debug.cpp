@@ -386,6 +386,7 @@ void debug_add_tracepoints(const char *list) {
 // profile.txt with the hottest addresses per thread (symbolize host ones with llvm-addr2line).
 #include <map>
 #include <algorithm>
+extern "C" volatile unsigned long g_apu_frame_thread; /* XB_PROFILE_APU_ONLY=1: APU frame thread */
 static DWORD WINAPI profiler_thread(void *arg) {
     uint32_t packed = (uint32_t)(uintptr_t)arg;
     DWORD start = packed >> 16, secs = packed & 0xFFFF;
@@ -400,9 +401,11 @@ static DWORD WINAPI profiler_thread(void *arg) {
     /* XB_PROFILE_GPU_ONLY=1: sample only the renderer (pfifo) thread, ~1 kHz instead of one
      * snapshot of every thread per loop (~20 Hz), for function-level detail of the draw path. */
     extern volatile unsigned long g_glcp_thread;
-    if (getenv("XB_PROFILE_GPU_ONLY") && g_glcp_thread) {
-        HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, g_glcp_thread);
-        DWORD tid = g_glcp_thread;
+    DWORD only = getenv("XB_PROFILE_APU_ONLY") ? g_apu_frame_thread
+               : getenv("XB_PROFILE_GPU_ONLY") ? g_glcp_thread : 0;
+    if (only) {
+        HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, only);
+        DWORD tid = only;
         timeBeginPeriod(1);
         while (h && GetTickCount() < end) {
             if (SuspendThread(h) != (DWORD)-1) {

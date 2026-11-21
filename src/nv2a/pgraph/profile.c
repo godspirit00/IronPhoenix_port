@@ -20,6 +20,8 @@
 #include "nv2a_int.h"
 
 NV2AStats g_nv2a_stats;
+/* true interval averages for the "frames:" log line (flips and worst gap since last line) */
+volatile int64_t g_nv2a_flip_total, g_nv2a_flip_max_gap_us;
 
 void nv2a_profile_increment(void)
 {
@@ -29,7 +31,12 @@ void nv2a_profile_increment(void)
     if (g_nv2a_stats.last_flip_time && now - g_nv2a_stats.last_flip_time > 50000) {
         nv2a_log("hitch: %lld ms between flips", (long long)((now - g_nv2a_stats.last_flip_time) / 1000));
     }
+    if (g_nv2a_stats.last_flip_time) {
+        int64_t gap = now - g_nv2a_stats.last_flip_time;
+        if (gap > g_nv2a_flip_max_gap_us) g_nv2a_flip_max_gap_us = gap;
+    }
     g_nv2a_stats.last_flip_time = now;
+    g_nv2a_flip_total++;
 
     static int64_t frame_count = 0;
     frame_count++;

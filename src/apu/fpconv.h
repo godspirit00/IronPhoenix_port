@@ -22,6 +22,7 @@
 #define FLOATCONV_H
 
 #include <stdint.h>
+#include <emmintrin.h>
 
 static inline float int8_to_float(int8_t x)
 {
@@ -62,7 +63,9 @@ static inline uint32_t float_to_24b(float value)
     } else if (scaled_value <= (-8.0 * 0x100000)) {
         int24 = -1 - 0x7fffff;
     } else {
-        int24 = lrint(scaled_value);
+        /* = lrint() (current rounding mode, nearest-even by default); the 32-bit UCRT lrint
+         * saves/restores the FP environment and was ~14% of the APU frame thread */
+        int24 = _mm_cvtsd_si32(_mm_set_sd(scaled_value));
     }
     return int24 & 0xffffff;
 }

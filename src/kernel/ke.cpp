@@ -291,6 +291,23 @@ static void precise_sleep_100ns(int64_t t) {
     }
 }
 
+// XB_WAIT_LOG=N: log guest waits that block for at least N ms (diagnosing periodic stalls).
+static int wait_log_ms() {
+    static int v = -2;
+    if (v == -2) { const char *e = getenv("XB_WAIT_LOG"); v = e ? atoi(e) : -1; }
+    return v;
+}
+static void wait_log(const char *what, uint32_t obj, uint32_t count, const int64_t *timeout, uint32_t r,
+                     LARGE_INTEGER t0, uint32_t ret) {
+    LARGE_INTEGER t1;
+    QueryPerformanceCounter(&t1);
+    int64_t ms = (t1.QuadPart - t0.QuadPart) * 1000 / g_qpf.QuadPart;
+    if (ms < wait_log_ms()) return;
+    uint8_t type = obj ? xptr<X_DISPATCHER_HEADER>(obj)->Type : 0xFF;
+    logf("wait: %s obj %08x type %u count %u timeout %ld ms -> %08x after %lld ms (caller %08x)", what, obj, type,
+         count, timeout ? (long)timeout_to_ms(timeout) : -1L, r, (long long)ms, ret);
+}
+
 KEXPORT uint32_t xk_KeDelayExecutionThread(uint32_t WaitMode, uint32_t Alertable, int64_t *Interval) {
     int64_t t = *Interval;
     if (t > 0) {
@@ -300,6 +317,9 @@ KEXPORT uint32_t xk_KeDelayExecutionThread(uint32_t WaitMode, uint32_t Alertable
     } else {
         t = -t;
     }
+    if (wait_log_ms() >= 0 && t / 10000 >= wait_log_ms())
+        logf("wait: KeDelayExecutionThread %lld ms (caller %08x)", (long long)(t / 10000),
+             (uint32_t)(uintptr_t)__builtin_return_address(0));
     if ((Alertable & 0xFF) && t >= 10000) {
         DWORD r = SleepEx((DWORD)(t / 10000), TRUE);
         return r == WAIT_IO_COMPLETION ? X_STATUS_USER_APC : X_STATUS_SUCCESS;
@@ -396,12 +416,23 @@ KEXPORT uint32_t xk_KeSetEvent(uint32_t Event, uint32_t Increment, uint32_t Wait
 }
 
 KEXPORT uint32_t xk_KeWaitForSingleObject(uint32_t Object, uint32_t WaitReason, uint32_t WaitMode, uint32_t Alertable, int64_t *Timeout) {
-    return ke_wait_objects(1, &Object, false, Timeout, Alertable & 0xFF);
+    if (wait_log_ms() < 0) return ke_wait_objects(1, &Object, false, Timeout, Alertable & 0xFF);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    uint32_t r = ke_wait_objects(1, &Object, false, Timeout, Alertable & 0xFF);
+    wait_log("KeWaitForSingleObject", Object, 1, Timeout, r, t0, (uint32_t)(uintptr_t)__builtin_return_address(0));
+    return r;
 }
 
 KEXPORT uint32_t xk_KeWaitForMultipleObjects(uint32_t Count, uint32_t *Object, uint32_t WaitType, uint32_t WaitReason,
                                              uint32_t WaitMode, uint32_t Alertable, int64_t *Timeout, uint32_t WaitBlockArray) {
-    return ke_wait_objects(Count, Object, WaitType == 0 /*WaitAll*/, Timeout, Alertable & 0xFF);
+    if (wait_log_ms() < 0) return ke_wait_objects(Count, Object, WaitType == 0 /*WaitAll*/, Timeout, Alertable & 0xFF);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    uint32_t r = ke_wait_objects(Count, Object, WaitType == 0 /*WaitAll*/, Timeout, Alertable & 0xFF);
+    wait_log("KeWaitForMultipleObjects", Count ? Object[0] : 0, Count, Timeout, r, t0,
+             (uint32_t)(uintptr_t)__builtin_return_address(0));
+    return r;
 }
 
 // Nt* handle based objects map 1:1 onto host handles.
@@ -434,7 +465,10 @@ void *io_wait_object(uint32_t h);
 static uint32_t nt_wait(uint32_t Handle, uint32_t Alertable, int64_t *Timeout) {
     HANDLE w = io_wait_object(Handle); // asynchronous file: signaled when its reads have completed
     if (!w) w = xptr<void>(Handle);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
     DWORD r = WaitForSingleObjectEx(w, timeout_to_ms(Timeout), Alertable & 0xFF);
+    if (wait_log_ms() >= 0) wait_log("NtWaitForSingleObject", 0, Handle, Timeout, r, t0, 0);
     if (r == WAIT_FAILED) {
         logf("NtWaitForSingleObject(%08x) failed: %lu", Handle, GetLastError());
         return X_STATUS_INVALID_HANDLE;

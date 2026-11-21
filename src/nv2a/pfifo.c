@@ -500,7 +500,14 @@ void *pfifo_thread(void *arg)
                 poll = getenv("XB_GPU_POLL") != NULL;
             }
             extern bool pgraph_gl_reports_pending(void);
-            if (!poll && pgraph_gl_reports_pending()) {
+            static int report_spin = -1;
+            if (report_spin < 0) report_spin = getenv("XB_REPORT_SPIN") != NULL;
+            if (!poll && pgraph_gl_reports_pending() && report_spin) {
+                /* experiment: re-poll right away (the game spins until the report lands) */
+                qemu_mutex_unlock(&d->pfifo.lock);
+                { extern __declspec(dllimport) int __stdcall SwitchToThread(void); SwitchToThread(); }
+                qemu_mutex_lock(&d->pfifo.lock);
+            } else if (!poll && pgraph_gl_reports_pending()) {
                 /* occlusion results outstanding: come back soon to write them */
                 qemu_cond_timedwait(&d->pfifo.fifo_cond, &d->pfifo.lock, 1);
             } else if (poll) {

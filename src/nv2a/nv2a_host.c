@@ -436,6 +436,21 @@ static DWORD WINAPI vblank_thread(void *arg)
             debug_gect_report();
             LARGE_INTEGER qf;
             QueryPerformanceFrequency(&qf);
+            {
+                /* exact average over the log interval and the longest flip-to-flip gap; the
+                 * "perf: N fps" figure is a 250 ms snapshot that hides periodic stalls */
+                extern volatile int64_t g_nv2a_flip_total, g_nv2a_flip_max_gap_us;
+                static int64_t last_total, last_t;
+                int64_t t = qemu_clock_get_us(QEMU_CLOCK_REALTIME), total = g_nv2a_flip_total;
+                if (last_t && t > last_t) {
+                    nv2a_log("frames: %lld in %lld ms = %.1f fps avg, worst gap %.1f ms", (long long)(total - last_total),
+                             (long long)((t - last_t) / 1000), (total - last_total) * 1e6 / (t - last_t),
+                             g_nv2a_flip_max_gap_us / 1000.0);
+                }
+                g_nv2a_flip_max_gap_us = 0;
+                last_total = total;
+                last_t = t;
+            }
             nv2a_log("perf: %d fps, last frame %d ms | ww sync %ld (%.1f ms) discard %ld | reports deferred %ld blocking %ld | %s", g_nv2a_stats.increment_fps,
                      g_nv2a_stats.frame_history[(g_nv2a_stats.frame_ptr + NV2A_PROF_NUM_FRAMES - 1) % NV2A_PROF_NUM_FRAMES].mspf,
                      InterlockedExchange(&g_ww_sync_calls, 0), InterlockedExchange64(&g_ww_ticks, 0) * 1000.0 / qf.QuadPart,

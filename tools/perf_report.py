@@ -14,6 +14,7 @@ def summarize(path, start, end):
     origin = previous = None
     elapsed = 0
     fps = []
+    interval_fps, worst_gaps = [], []
     phases = {}
     renderer = None
     backend = None
@@ -124,6 +125,10 @@ def summarize(path, start, end):
         match = re.search(r"perf: (\d+) fps", line)
         if match:
             fps.append(int(match[1]))
+        match = re.search(r"frames: \d+ in \d+ ms = ([\d.]+) fps avg, worst gap ([\d.]+) ms", line)
+        if match:
+            interval_fps.append(float(match[1]))
+            worst_gaps.append(float(match[2]))
     warnings = []
     if validation_failed:
         warnings.append("Runtime log contains a validation failure.")
@@ -147,6 +152,9 @@ def summarize(path, start, end):
         "texture_state_mode": texture_state_mode, "texture_state": texture_state,
         "window_seconds": [start, end], "log_duration_seconds": round(elapsed, 3),
         "fps_sample_count": len(fps),
+        "fps_interval": {"min": min(interval_fps), "mean": round(sum(interval_fps) / len(interval_fps), 2),
+                         "worst_gap_ms": max(worst_gaps),
+                         "intervals_below_58": sum(1 for f in interval_fps if f < 58)} if interval_fps else None,
         "fps_samples": {"min": min(fps), "mean": round(sum(fps) / len(fps), 2),
                         "max": max(fps)} if fps else None,
         "cpu_phase_us_per_call": {
