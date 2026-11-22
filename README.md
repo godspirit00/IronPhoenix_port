@@ -104,6 +104,7 @@ Environment variables that can help on slower machines (Steam Deck):
 | `XB_VIS_WAIT=0` | Restore the game's original busy-wait for occlusion results (the default sleeps until the result arrives, freeing a CPU core) |
 | `XB_SHADER_ASYNC=0` | Compile new shaders on the render thread again. By default a shader the cache doesn't have yet is compiled in the background and the draws that need it are skipped until it is ready (no stall, but an effect can be missing for a fraction of a second the first time it appears) |
 | `XB_SHADER_THREADS=N` | Driver compiler threads for background shader compiles (default 2; 0 compiles them one at a time) |
+| `XB_VK_QUERY_OUTSIDE_RP=1` | Vulkan: restore upstream occlusion-query handling (each query ends the render pass; slower) |
 | `XB_LOG_SYNC=1` | Write log lines on the calling thread, as before (the default hands them to a writer thread, so a slow disk can't stall video or rendering) |
 
 GTX 1060 / 4-thread CPU results and diagnostics (`XB_GPU_PROFILE=1`, `XB_CONSERVATIVE_VERIFY=1`,

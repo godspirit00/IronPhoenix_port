@@ -20,6 +20,8 @@ def main():
     parser.add_argument('--minimum-fps', type=int, default=5)
     parser.add_argument('--shots', type=int, default=5, help='screenshot interval (each one stalls ~0.5-1 s at scale 3)')
     parser.add_argument('--texture-state-verify', action='store_true')
+    parser.add_argument('--renderer', choices=('opengl', 'vulkan'), default='opengl')
+    parser.add_argument('--exe', type=Path, help='executable (default: perf_run.py default, build/ironphoenix.exe)')
     parser.add_argument('--ordinary', action='store_true',
                         help='ordinary user settings: all HLE bridges off (ignores --mode)')
     args = parser.parse_args()
@@ -37,7 +39,7 @@ def main():
         tag = f'{args.tag}-{name}'
         command = [sys.executable, str(root/'tools/perf_run.py'), '--tag', tag,
                    '--script', str(script), '--expect-scene', MAPS[name][0],
-                   '--renderer', 'opengl',
+                   '--renderer', args.renderer, *(['--exe', str(args.exe)] if args.exe else []),
                    *(['--hle-up', 'off', '--hle-indexed', 'off', '--hle-resources', 'off', '--hle-buffers', 'off']
                      if args.ordinary else
                      ['--hle-up', '1', '--hle-indexed', '1', '--hle-resources', '1', '--hle-buffers', args.mode]),

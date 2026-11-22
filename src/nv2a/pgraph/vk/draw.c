@@ -1072,10 +1072,28 @@ static void bind_descriptor_sets(PGRAPHState *pg)
                             NULL);
 }
 
+/* Port change: occlusion queries are begun inside the render pass. Upstream reset each query
+ * with vkCmdResetQueryPool, which is only allowed outside a render pass, so every guest query
+ * boundary ended and restarted the render pass (Warship: ~157 render passes per frame for ~132
+ * queries). The pool is now reset in bulk when a command buffer begins (all results were read
+ * by the preceding finish), a query begun inside a render pass is ended before the pass ends,
+ * and the next draw opens a new one: report processing already sums every query between two
+ * guest reports, so the split does not change results. XB_VK_QUERY_OUTSIDE_RP=1 restores the
+ * upstream behaviour. */
+static int vk_query_outside_rp(void)
+{
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("XB_VK_QUERY_OUTSIDE_RP");
+        v = e && atoi(e);
+    }
+    return v;
+}
+
 static void begin_query(PGRAPHVkState *r)
 {
     assert(r->in_command_buffer);
-    assert(!r->in_render_pass);
+    assert(!vk_query_outside_rp() ? r->in_render_pass : !r->in_render_pass);
     assert(!r->query_in_flight);
 
     // FIXME: We should handle this. Make the query buffer bigger, but at least
@@ -1083,8 +1101,10 @@ static void begin_query(PGRAPHVkState *r)
     assert(r->num_queries_in_flight < r->max_queries_in_flight);
 
     nv2a_profile_inc_counter(NV2A_PROF_QUERY);
-    vkCmdResetQueryPool(r->command_buffer, r->query_pool,
-                        r->num_queries_in_flight, 1);
+    if (vk_query_outside_rp()) {
+        vkCmdResetQueryPool(r->command_buffer, r->query_pool,
+                            r->num_queries_in_flight, 1);
+    }
     vkCmdBeginQuery(r->command_buffer, r->query_pool, r->num_queries_in_flight,
                     VK_QUERY_CONTROL_PRECISE_BIT);
 
@@ -1096,7 +1116,6 @@ static void begin_query(PGRAPHVkState *r)
 static void end_query(PGRAPHVkState *r)
 {
     assert(r->in_command_buffer);
-    assert(!r->in_render_pass);
     assert(r->query_in_flight);
 
     vkCmdEndQuery(r->command_buffer, r->query_pool,
@@ -1211,6 +1230,9 @@ static void begin_render_pass(PGRAPHState *pg)
 static void end_render_pass(PGRAPHVkState *r)
 {
     if (r->in_render_pass) {
+        if (r->query_in_flight && !vk_query_outside_rp()) {
+            end_query(r); /* begun inside this render pass: must end in it */
+        }
         vkCmdEndRenderPass(r->command_buffer);
         r->in_render_pass = false;
     }
@@ -1328,6 +1350,12 @@ void pgraph_vk_begin_command_buffer(PGRAPHState *pg)
     };
     VK_CHECK(vkBeginCommandBuffer(r->command_buffer,
                                   &command_buffer_begin_info));
+    if (!vk_query_outside_rp()) {
+        /* every query of the previous command buffer was read by pgraph_vk_finish */
+        assert(r->num_queries_in_flight == 0);
+        vkCmdResetQueryPool(r->command_buffer, r->query_pool, 0,
+                            r->max_queries_in_flight);
+    }
     r->command_buffer_start_time = pg->draw_time;
     r->in_command_buffer = true;
 }
@@ -1431,30 +1459,46 @@ static void begin_draw(PGRAPHState *pg)
 
     assert(r->in_command_buffer);
 
-    // Visibility testing
-    if (!pg->clearing && pg->zpass_pixel_count_enable) {
-        if (r->new_query_needed && r->query_in_flight) {
+    bool must_bind_pipeline = r->pipeline_binding_changed;
+
+    if (vk_query_outside_rp()) {
+        // Visibility testing (upstream: queries outside the render pass)
+        if (!pg->clearing && pg->zpass_pixel_count_enable) {
+            if (r->new_query_needed && r->query_in_flight) {
+                end_render_pass(r);
+                end_query(r);
+            }
+            if (!r->query_in_flight) {
+                end_render_pass(r);
+                begin_query(r);
+            }
+        } else if (r->query_in_flight) {
             end_render_pass(r);
             end_query(r);
         }
-        if (!r->query_in_flight) {
-            end_render_pass(r);
-            begin_query(r);
-        }
-    } else if (r->query_in_flight) {
-        end_render_pass(r);
-        end_query(r);
     }
 
     if (pg->clearing) {
         end_render_pass(r);
     }
 
-    bool must_bind_pipeline = r->pipeline_binding_changed;
-
     if (!r->in_render_pass) {
         begin_render_pass(pg);
         must_bind_pipeline = true;
+    }
+
+    if (!vk_query_outside_rp()) {
+        // Visibility testing, inside the render pass
+        if (!pg->clearing && pg->zpass_pixel_count_enable) {
+            if (r->new_query_needed && r->query_in_flight) {
+                end_query(r);
+            }
+            if (!r->query_in_flight) {
+                begin_query(r);
+            }
+        } else if (r->query_in_flight) {
+            end_query(r);
+        }
     }
 
     if (must_bind_pipeline) {
