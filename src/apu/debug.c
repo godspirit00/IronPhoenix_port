@@ -30,8 +30,14 @@ const struct McpxApuDebug *mcpx_apu_get_debug_info(void)
     return &g_dbg_cache;
 }
 
+/* Port: the per-voice debug state feeds xemu's debug UI (absent here) and voice isolation;
+ * resetting it and copying the ~18 KB struct every audio frame (1500/s) was ~4% of the APU
+ * frame thread. Only voice isolation reads it in this port. */
 void mcpx_debug_begin_frame(void)
 {
+    if (g_dbg_voice_monitor < 0) {
+        return;
+    }
     for (int i = 0; i < MCPX_HW_MAX_VOICES; i++) {
         g_dbg.vp.v[i].active = false;
         g_dbg.vp.v[i].multipass_dst_voice = 0xFFFF;
@@ -40,6 +46,9 @@ void mcpx_debug_begin_frame(void)
 
 void mcpx_debug_end_frame(void)
 {
+    if (g_dbg_voice_monitor < 0) {
+        return;
+    }
     g_dbg_cache = g_dbg;
 }
 

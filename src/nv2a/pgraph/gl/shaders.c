@@ -1027,6 +1027,11 @@ void pgraph_gl_init_shaders(PGRAPHState *pg)
         shader_gl_version = (const char *) glGetString(GL_VERSION);
     }
 
+    /* XB_NO_SHADER_CACHE=1: neither load nor write the shader disk cache (testing, and
+     * experiments whose shaders must not be stored under ordinary cache keys) */
+    if (getenv("XB_NO_SHADER_CACHE")) {
+        g_config.perf.cache_shaders = false;
+    }
     shader_create_cache_folder();
 
     /* FIXME: Make this configurable */

@@ -231,13 +231,38 @@ Removing these waits needs renaming of rewritten vertex ranges (append the new d
 those draws) and/or several command buffers in flight with lifetime tracking for staging
 buffers, descriptor sets, framebuffers and deferred query results. Not attempted yet.
 
+### Emulated depth and the audio DSP: measured, not changed (2026-11-22)
+
+Warship heavy phase, GPU profiler, shader disk cache off (`XB_NO_SHADER_CACHE=1`, new: neither
+loads nor writes the cache, so experiments never store shaders under ordinary keys):
+
+* Geometry shader (every triangle draw passes one so the fragment shader gets all three vertex
+  positions): skipping it for filled triangles (measurement-only build, wrong depth) left draw
+  GPU time within run-to-run variation (1340-1656 vs 1389-1708 ms per 2 s). Not a cost.
+* Per-triangle depth plane: the geometry shader already computes exact plane gradients for the
+  polygon-offset slope; passing them on and evaluating `z0 + dzx*dx + dzy*dy` per fragment
+  (w-buffer: on 1/w) replaces three barycentric areas and a division. Draw GPU time -6%
+  (1451 vs 1545 ms per 2 s, 8.27 vs 8.67 us per draw). Not bit-exact: in combat 0.6% of
+  fragments floor to a different integer depth, 0.12% by 2+ units (0 in menus; GPU counters,
+  `g1060-dp-verify`). The earlier "22% of draw time" was computed-vs-no depth; most of it is
+  the `gl_FragDepth` write and clip/discard code, not the barycentric formula. Reverted: a ~5%
+  GPU gain does not justify giving up exact depth. The GPU is 74-85% busy in this phase.
+* Audio DSP (APU frame thread, 30 s sampled, `g1060-apuprof*`): ~41% busy; dispatch, the
+  per-instruction PC/interrupt epilogue, parallel-move decode, CCR update and address
+  calculation each take a similar share. Inlining the epilogue's common checks with the rare
+  branches out of line: no change (DSP share 0.45 before and after); a fast path that skipped
+  the epilogue when no DO loop is active made it worse (0.54): audio code runs inside DO loops.
+  Kept: the per-frame APU debug bookkeeping (reset of 256 voice records and an ~18 KB struct copy
+  1500 times a second, ~4% of the thread's busy samples) now runs only when voice isolation is
+  on, its only reader in this port. A real DSP reduction needs predecoding or a JIT; APU
+  utilization is ~0.58 at full real-time rate here, so it is not limiting.
+
 ## Open issues
 
 * Vulkan: builds and runs here now (see above); ~40 fps in Warship after the query fix, limited
   by blocking submits. Conservative depth and background compiles are OpenGL-only.
-* Next ideas: per-pixel depth math is still ~20% of depth-tested draw time (variant 2 vs
-  hardware depth); DSP interpreter still ~0.45 of a core. (Shader compiles: now in the
-  background, see above.)
+* Next ideas: none pending at scale 3 on this machine (see the measured-not-changed section);
+  a DSP predecode/JIT and fewer `gl_FragDepth` writes would be larger projects.
 
 * One first run (cold shader cache) had ~510 ms flip gaps once per second for ~70 s while the
   APU's 5 s status line stopped (it is not printed while the APU is held). Not reproduced in a
