@@ -511,7 +511,7 @@ void pgraph_gl_draw_end(NV2AState *d)
  * dot(pos, c0) / dot(pos, c3) + viewport offset. Inline arrays only (how the game draws its UI). */
 static void ui_unsquash_full_width(PGRAPHState *pg, PGRAPHGLState *r, unsigned int index_count)
 {
-    if (pg->ui_squash_value == 1.0f || index_count == 0) {
+    if (pg->ui_squash_value == 1.0f || index_count == 0 || r->shader_pending) {
         return;
     }
     GLint loc = r->shader_binding->uniform_locs.vsh[VshUniform_uiSquash];
@@ -588,7 +588,14 @@ static void dwp_end(int64_t start, bool query)
         g_dwp.t0 = now;
     }
 }
-#define DWP(call) do { int64_t dwp_t = dwp_begin(); call; dwp_end(dwp_t, pg->zpass_pixel_count_enable); } while (0)
+/* The draw call itself; skipped while the program compiles in the background (see
+ * shader_async_request in shaders.c). Everything else in a draw (vertex uploads, inline
+ * attribute bookkeeping) still runs, so later draws see the same state. */
+#define DWP(call) do { \
+        if (r->shader_pending) { g_shader_async_skipped_draws++; break; } \
+        int64_t dwp_t = dwp_begin(); call; dwp_end(dwp_t, pg->zpass_pixel_count_enable); \
+    } while (0)
+extern long g_shader_async_skipped_draws;
 
 void pgraph_gl_flush_draw(NV2AState *d)
 {
@@ -599,10 +606,10 @@ void pgraph_gl_flush_draw(NV2AState *d)
     if (!(r->color_binding || r->zeta_binding)) {
         return;
     }
-    assert(r->shader_binding);
+    assert(r->shader_binding || r->shader_pending);
     GpuDrawSample gpu_sample __attribute__((cleanup(gpu_draw_end))) = gpu_draw_begin(r);
     GPU_PROF_SCOPE(GPC_DRAW);
-    gpu_prof_set_key(gpu_prof_slot_GPC_DRAW, (r->shader_binding->gl_program << 3)
+    gpu_prof_set_key(gpu_prof_slot_GPC_DRAW, ((r->shader_binding && !r->shader_pending ? r->shader_binding->gl_program : 0) << 3)
                      | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0) & NV_PGRAPH_CONTROL_0_ZENABLE)
                      | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_0) & NV_PGRAPH_CONTROL_0_ZWRITEENABLE) << 1
                      | !!(pgraph_reg_r(pg, NV_PGRAPH_CONTROL_1) & NV_PGRAPH_CONTROL_1_STENCIL_TEST_ENABLE) << 2,

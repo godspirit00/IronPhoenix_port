@@ -156,13 +156,47 @@ the stress hit the game's own asset reads from the same disk. Its log also ended
 the process was killed (writer at normal priority, starved or blocked; the writer is now
 above normal and reports slow writes, and the rerun's log was complete).
 
+### Background shader compiles (2026-11-22)
+
+A shader state the cache had not seen was generated, compiled, linked and validated on the
+renderer thread: 30-330 ms each, with bursts of 15-40 when a map loads or combat starts (first
+visit, new driver, or new settings). Now the renderer queues the state and skips the draw calls
+that need it (`r->shader_pending`; vertex and inline-attribute bookkeeping still runs). A worker
+thread with its own shared GL context compiles the state to a program binary, writes it to the
+disk cache, and hands it back; the renderer loads it with `glProgramBinary` on a later bind, the
+same path as shaders preloaded from disk. Only the renderer modifies the shader LRU. With
+`GL_KHR_parallel_shader_compile` (present on this driver) the worker issues a whole burst
+without querying status and the driver compiles it on its own threads (`XB_SHADER_THREADS`,
+default 2), publishing each program as it completes. A binary that fails to load or a state
+the worker cannot link falls back to the synchronous path (which reports errors as before).
+`XB_SHADER_ASYNC=0` restores synchronous compiles; use it with `XB_GPU_PROFILE` GLSL dumps.
+
+Measured cold: both our shader cache and the driver's GLSL cache for this executable
+(`%LOCALAPPDATA%\NVIDIA\GLCache\...\6461f0cef940c812.*`) renamed aside for each run and
+restored afterwards. `__GL_SHADER_DISK_CACHE=0` does not disable the driver cache on Windows, and
+runs with only our cache cleared compile in 0-10 ms each. Night Demon Warship, 68 states,
+`scratch/perf/g1060-sa4-*`:
+
+| Variant | Hitches >= 50 ms after 95 s | Worst | Frames 102-104 s | Map load burst: worst wait / skipped draws | Combat start burst |
+| --- | --- | --- | --- | --- | --- |
+| synchronous (`XB_SHADER_ASYNC=0`) | 14 | 1000 ms | 53 / 120 | - | - |
+| async, one at a time (`XB_SHADER_THREADS=0`) | 2 | 77 ms | 106 / 120 | 2743 ms / 35,405 | 1139 ms / 7,543 |
+| async, parallel (default) | 4 | 154 ms | 99 / 120 | 712 ms / 699 | 530 ms / 2,554 |
+
+The parallel variant's 154 ms gap is the driver's compiler threads competing for the four
+cores during the combat-start burst; it shortens missing-effect time 2-4x. Warm cache (nothing
+to compile): async build vs `XB_SHADER_ASYNC=0`, Warship heavy phase 120 frames per 2 s in both,
+interval mean 60.03 vs 59.84, so an idle worker costs nothing. One cold async run showed a 10-15%
+lower heavy phase without compiles; it did not repeat (two later async runs matched sync) and
+the sync runs vary as much. Screenshots after the bursts match the synchronous build.
+
 ## Open issues
 
 * Vulkan build not compiled on this machine (toolchain not prepared); the conservative-depth
   generator change is guarded to OpenGL.
 * Next ideas: per-pixel depth math is still ~20% of depth-tested draw time (variant 2 vs
-  hardware depth); shader compiles are synchronous on the renderer (30-330 ms each on first
-  visit); DSP interpreter still ~0.45 of a core.
+  hardware depth); DSP interpreter still ~0.45 of a core. (Shader compiles: now in the
+  background, see above.)
 
 * One first run (cold shader cache) had ~510 ms flip gaps once per second for ~70 s while the
   APU's 5 s status line stopped (it is not printed while the APU is held). Not reproduced in a

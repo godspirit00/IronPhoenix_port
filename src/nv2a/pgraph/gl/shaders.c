@@ -428,7 +428,8 @@ static void warm_queue_push(uint64_t hash, const ShaderState *state)
 
 typedef struct { ShaderModuleCacheKey key; GLuint shader; } WarmModule;
 
-static GLuint warm_module(WarmModule **mods, size_t *n, size_t *cap, const ShaderModuleCacheKey *key)
+static GLuint warm_module(WarmModule **mods, size_t *n, size_t *cap, const ShaderModuleCacheKey *key,
+                          bool deferred)
 {
     for (size_t i = 0; i < *n; i++) {
         if (!memcmp(&(*mods)[i].key, key, sizeof(*key))) {
@@ -451,7 +452,17 @@ static GLuint warm_module(WarmModule **mods, size_t *n, size_t *cap, const Shade
         code = pgraph_glsl_gen_psh(&key->psh.state, key->psh.glsl_opts);
         break;
     }
-    GLuint sh = create_gl_shader(key->kind, mstring_get_str(code), kind_str);
+    GLuint sh;
+    if (deferred) {
+        /* status is not queried: a compile error shows up as a link failure, and the renderer
+         * then compiles synchronously, which reports it */
+        const char *src = mstring_get_str(code);
+        sh = glCreateShader(key->kind);
+        glShaderSource(sh, 1, &src, 0);
+        glCompileShader(sh);
+    } else {
+        sh = create_gl_shader(key->kind, mstring_get_str(code), kind_str);
+    }
     mstring_unref(code);
     if (*n == *cap) {
         *cap = *cap ? *cap * 2 : 128;
@@ -465,6 +476,64 @@ static GLuint warm_module(WarmModule **mods, size_t *n, size_t *cap, const Shade
 
 static void shader_write_to_disk_sync(uint64_t hash, const ShaderState *state, GLenum format,
                                       const void *bin, size_t size);
+
+/* Issue the compile and link of a shader state on the calling thread's (worker) context. With
+ * deferred, no status is queried, so a driver with parallel compile works on it in the
+ * background; finish_program_binary then waits for it. */
+static GLuint start_program(const ShaderState *state, WarmModule **mods, size_t *nmods,
+                            size_t *capmods, bool deferred)
+{
+    GLuint program = glCreateProgram();
+    ShaderModuleCacheKey key;
+    bool need_geom = pgraph_glsl_need_geom(&state->geom);
+    if (need_geom) {
+        memset(&key, 0, sizeof(key));
+        key.kind = GL_GEOMETRY_SHADER;
+        key.geom.state = state->geom;
+        glAttachShader(program, warm_module(mods, nmods, capmods, &key, deferred));
+    }
+    memset(&key, 0, sizeof(key));
+    key.kind = GL_VERTEX_SHADER;
+    key.vsh.state = state->vsh;
+    key.vsh.glsl_opts.prefix_outputs = need_geom;
+    glAttachShader(program, warm_module(mods, nmods, capmods, &key, deferred));
+    memset(&key, 0, sizeof(key));
+    key.kind = GL_FRAGMENT_SHADER;
+    key.psh.state = state->psh;
+    glAttachShader(program, warm_module(mods, nmods, capmods, &key, deferred));
+    glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+    glLinkProgram(program);
+    return program;
+}
+
+/* Wait for the link, return the program binary (g_malloc'd) or NULL if it did not link or the
+ * driver has no binary format, and delete the program. */
+static void *finish_program_binary(GLuint program, GLenum *format, GLsizei *got)
+{
+    GLint linked = 0, size = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    if (linked) {
+        glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &size);
+    }
+    void *bin = NULL;
+    *got = 0;
+    if (linked && size > 0) {
+        bin = g_malloc(size);
+        glGetProgramBinary(program, size, got, format, bin);
+        if (*got <= 0) {
+            g_free(bin);
+            bin = NULL;
+        }
+    }
+    glDeleteProgram(program);
+    return bin;
+}
+
+static void *compile_state_to_binary(const ShaderState *state, WarmModule **mods, size_t *nmods,
+                                     size_t *capmods, GLenum *format, GLsizei *got)
+{
+    return finish_program_binary(start_program(state, mods, nmods, capmods, false), format, got);
+}
 
 static void shader_warm_compile(PGRAPHState *pg)
 {
@@ -490,38 +559,10 @@ static void shader_warm_compile(PGRAPHState *pg)
             continue;
         }
 
-        GLuint program = glCreateProgram();
-        ShaderModuleCacheKey key;
-        bool need_geom = pgraph_glsl_need_geom(&state->geom);
-        if (need_geom) {
-            memset(&key, 0, sizeof(key));
-            key.kind = GL_GEOMETRY_SHADER;
-            key.geom.state = state->geom;
-            glAttachShader(program, warm_module(&mods, &nmods, &capmods, &key));
-        }
-        memset(&key, 0, sizeof(key));
-        key.kind = GL_VERTEX_SHADER;
-        key.vsh.state = state->vsh;
-        key.vsh.glsl_opts.prefix_outputs = need_geom;
-        glAttachShader(program, warm_module(&mods, &nmods, &capmods, &key));
-        memset(&key, 0, sizeof(key));
-        key.kind = GL_FRAGMENT_SHADER;
-        key.psh.state = state->psh;
-        glAttachShader(program, warm_module(&mods, &nmods, &capmods, &key));
-        glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
-        glLinkProgram(program);
-
-        GLint linked = 0, size = 0;
-        glGetProgramiv(program, GL_LINK_STATUS, &linked);
-        if (linked) {
-            glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &size);
-        }
-        if (linked && size > 0) {
-            void *bin = g_malloc(size);
-            GLsizei got = 0;
-            GLenum format = 0;
-            glGetProgramBinary(program, size, &got, &format, bin);
-
+        GLenum format = 0;
+        GLsizei got = 0;
+        void *bin = compile_state_to_binary(state, &mods, &nmods, &capmods, &format, &got);
+        if (bin) {
             shader_write_to_disk_sync(hash, state, format, bin, got);
 
             qemu_mutex_lock(&r->shader_cache_lock);
@@ -538,7 +579,6 @@ static void shader_warm_compile(PGRAPHState *pg)
             g_free(bin);
             done++;
         }
-        glDeleteProgram(program);
     }
     for (size_t i = 0; i < nmods; i++) {
         glDeleteShader(mods[i].shader);
@@ -551,6 +591,243 @@ static void shader_warm_compile(PGRAPHState *pg)
     g_free(g_warm);
     g_warm = NULL;
     g_warm_n = g_warm_cap = 0;
+}
+
+/* Port: asynchronous compiles of shader cache misses. A miss used to generate, compile, link
+ * and validate on the renderer thread (30-330 ms each on a GTX 1060; first visit to a map, or a
+ * new driver/settings combination). Now the renderer queues the state and skips the draws that
+ * need it; a worker thread with its own shared context compiles it to a program binary and
+ * writes it to the disk cache, and the renderer picks the binary up on a later bind
+ * (glProgramBinary, the same path as shaders preloaded from disk). Only the renderer touches the
+ * LRU here. Skipped draws are visible for the compile time (objects or effects missing for a few
+ * frames). XB_SHADER_ASYNC=0 restores synchronous compiles. */
+typedef struct AsyncShaderJob {
+    struct AsyncShaderJob *next;
+    uint64_t hash;
+    int64_t queued_ns, compile_ns, start_ns;
+    GLuint program; /* worker: link in progress */
+    void *bin; /* result: NULL if the worker could not produce a binary */
+    GLsizei size;
+    GLenum format;
+    ShaderState state;
+} AsyncShaderJob;
+
+static QemuMutex g_async_lock;
+static QemuCond g_async_cond;
+static AsyncShaderJob *g_async_todo, *g_async_todo_tail, *g_async_done;
+static GloContext *g_async_ctx;
+static QemuThread g_async_thread;
+static bool g_async_enabled, g_async_initialized;
+/* renderer thread only */
+static uint64_t *g_async_inflight, *g_async_sync_only;
+static size_t g_async_inflight_n, g_async_inflight_cap, g_async_sync_only_n, g_async_sync_only_cap;
+static int g_async_completed;
+long g_shader_async_skipped_draws; /* counted by flush_draw */
+
+static bool hash_set_contains(const uint64_t *set, size_t n, uint64_t h)
+{
+    for (size_t i = 0; i < n; i++) {
+        if (set[i] == h) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void hash_set_add(uint64_t **set, size_t *n, size_t *cap, uint64_t h)
+{
+    if (*n == *cap) {
+        *cap = *cap ? *cap * 2 : 64;
+        *set = g_realloc(*set, *cap * sizeof(uint64_t));
+    }
+    (*set)[(*n)++] = h;
+}
+
+static void hash_set_remove(uint64_t *set, size_t *n, uint64_t h)
+{
+    for (size_t i = 0; i < *n; i++) {
+        if (set[i] == h) {
+            set[i] = set[--*n];
+            return;
+        }
+    }
+}
+
+#ifndef GL_COMPLETION_STATUS_KHR
+#define GL_COMPLETION_STATUS_KHR 0x91B1
+#endif
+typedef void (GLAD_API_PTR *MaxShaderCompilerThreadsFn)(GLuint count);
+
+static void async_publish(AsyncShaderJob *job)
+{
+    if (job->bin && g_config.perf.cache_shaders) {
+        shader_write_to_disk_sync(job->hash, &job->state, job->format, job->bin, job->size);
+        g_reload_list_dirty = true;
+    }
+    qemu_mutex_lock(&g_async_lock);
+    job->next = g_async_done;
+    g_async_done = job;
+    qemu_mutex_unlock(&g_async_lock);
+}
+
+static void *shader_async_worker(void *arg)
+{
+    glo_set_current(g_async_ctx);
+    /* GL_KHR_parallel_shader_compile: issue a whole burst (a new map or effect brings 10-20
+     * states at once) and let the driver's compiler threads work on it, instead of one at a
+     * time. XB_SHADER_THREADS=N sets the driver thread count (default 2; 0: one at a time). */
+    const char *te = getenv("XB_SHADER_THREADS");
+    int threads = te ? atoi(te) : 2;
+    bool parallel = false;
+    if (threads > 0 && (glo_check_extension("GL_KHR_parallel_shader_compile") ||
+                        glo_check_extension("GL_ARB_parallel_shader_compile"))) {
+        MaxShaderCompilerThreadsFn fn = (MaxShaderCompilerThreadsFn)glo_get_proc_address("glMaxShaderCompilerThreadsKHR");
+        if (!fn) {
+            fn = (MaxShaderCompilerThreadsFn)glo_get_proc_address("glMaxShaderCompilerThreadsARB");
+        }
+        if (fn) {
+            fn(threads);
+            parallel = true;
+        }
+    }
+    nv2a_log("shader async: background compiles on, %s", parallel ? "parallel (driver threads)" : "one at a time");
+
+    WarmModule *mods = NULL;
+    size_t nmods = 0, capmods = 0;
+    AsyncShaderJob **batch = NULL;
+    size_t cap = 0;
+    for (;;) {
+        size_t n = 0;
+        qemu_mutex_lock(&g_async_lock);
+        while (!g_async_todo) {
+            qemu_cond_wait(&g_async_cond, &g_async_lock);
+        }
+        while (g_async_todo && (parallel || n == 0)) {
+            if (n == cap) {
+                cap = cap ? cap * 2 : 32;
+                batch = g_realloc(batch, cap * sizeof(*batch));
+            }
+            batch[n++] = g_async_todo;
+            g_async_todo = g_async_todo->next;
+        }
+        if (!g_async_todo) {
+            g_async_todo_tail = NULL;
+        }
+        qemu_mutex_unlock(&g_async_lock);
+
+        for (size_t i = 0; i < n; i++) {
+            batch[i]->start_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+            batch[i]->program = start_program(&batch[i]->state, &mods, &nmods, &capmods, parallel);
+        }
+        size_t left = n;
+        while (left) {
+            for (size_t i = 0; i < n; i++) {
+                AsyncShaderJob *job = batch[i];
+                if (!job) {
+                    continue;
+                }
+                if (parallel) {
+                    GLint done = 0;
+                    glGetProgramiv(job->program, GL_COMPLETION_STATUS_KHR, &done);
+                    if (!done) {
+                        continue;
+                    }
+                }
+                job->bin = finish_program_binary(job->program, &job->format, &job->size);
+                job->compile_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME) - job->start_ns;
+                batch[i] = NULL;
+                left--;
+                async_publish(job);
+            }
+            if (left) { /* poll again in ~1 ms */
+                qemu_mutex_lock(&g_async_lock);
+                qemu_cond_timedwait(&g_async_cond, &g_async_lock, 1);
+                qemu_mutex_unlock(&g_async_lock);
+            }
+        }
+    }
+    return NULL;
+}
+
+static void shader_async_init(void)
+{
+    g_async_initialized = true;
+    const char *e = getenv("XB_SHADER_ASYNC");
+    if (e && !strcmp(e, "0")) {
+        return;
+    }
+    qemu_mutex_init(&g_async_lock);
+    qemu_cond_init(&g_async_cond);
+    g_async_ctx = glo_context_create(); /* does not change the current context */
+    qemu_thread_create(&g_async_thread, "pgraph.shader_async", shader_async_worker, NULL,
+                       QEMU_THREAD_JOINABLE);
+    g_async_enabled = true;
+}
+
+/* Renderer, with shader_cache_lock held: hand finished binaries to their cache entries. */
+static void shader_async_collect(PGRAPHGLState *r)
+{
+    if (!g_async_enabled || !qatomic_read(&g_async_done)) {
+        return;
+    }
+    qemu_mutex_lock(&g_async_lock);
+    AsyncShaderJob *job = g_async_done;
+    g_async_done = NULL;
+    qemu_mutex_unlock(&g_async_lock);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+    while (job) {
+        AsyncShaderJob *next = job->next;
+        hash_set_remove(g_async_inflight, &g_async_inflight_n, job->hash);
+        LruNode *node = lru_lookup(&r->shader_cache, job->hash, &job->state);
+        ShaderBinding *binding = container_of(node, ShaderBinding, node);
+        if (!job->bin) {
+            /* no binary (link failure, or no binary format): compile on the renderer as
+             * before, which also reports the error */
+            hash_set_add(&g_async_sync_only, &g_async_sync_only_n, &g_async_sync_only_cap,
+                         job->hash);
+        } else if (!binding->initialized && !binding->program) {
+            binding->program_format = job->format;
+            binding->program_size = job->size;
+            binding->program = job->bin;
+            binding->cached = true;
+            job->bin = NULL;
+        }
+        g_async_completed++;
+        nv2a_log("shader: compiled #%d in background in %lld ms, ready after %lld ms "
+                 "(%ld draws skipped so far)",
+                 g_async_completed, (long long)(job->compile_ns / 1000000),
+                 (long long)((now - job->queued_ns) / 1000000), g_shader_async_skipped_draws);
+        g_free(job->bin);
+        g_free(job);
+        job = next;
+    }
+}
+
+/* Renderer: true if the state is queued for a background compile; false to compile it now. */
+static bool shader_async_request(ShaderBinding *binding, uint64_t hash)
+{
+    if (!g_async_enabled || binding->program /* a binary is present but failed to load */ ||
+        hash_set_contains(g_async_sync_only, g_async_sync_only_n, hash)) {
+        return false;
+    }
+    if (hash_set_contains(g_async_inflight, g_async_inflight_n, hash)) {
+        return true;
+    }
+    AsyncShaderJob *job = g_malloc0(sizeof(*job));
+    job->hash = hash;
+    job->queued_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+    memcpy(&job->state, &binding->state, sizeof(ShaderState));
+    hash_set_add(&g_async_inflight, &g_async_inflight_n, &g_async_inflight_cap, hash);
+    qemu_mutex_lock(&g_async_lock);
+    if (g_async_todo_tail) {
+        g_async_todo_tail->next = job;
+    } else {
+        g_async_todo = job;
+    }
+    g_async_todo_tail = job;
+    qemu_cond_signal(&g_async_cond);
+    qemu_mutex_unlock(&g_async_lock);
+    return true;
 }
 
 static void shader_load_from_disk(PGRAPHState *pg, uint64_t hash)
@@ -772,6 +1049,10 @@ void pgraph_gl_init_shaders(PGRAPHState *pg)
 
     qemu_thread_create(&r->shader_disk_thread, "pgraph.renderer_state->shader_cache",
                        shader_reload_lru_from_disk, pg, QEMU_THREAD_JOINABLE);
+
+    if (!g_async_initialized) {
+        shader_async_init();
+    }
 
     /* FIXME: Make this configurable */
     const size_t shader_module_cache_size = 50*1024;
@@ -1133,7 +1414,7 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg)
     PGRAPHGLState *r = pg->gl_renderer_state;
 
     bool binding_changed = false;
-    if (r->shader_binding &&
+    if (r->shader_binding && !r->shader_pending &&
         !pgraph_glsl_check_shader_state_dirty(pg, &r->shader_binding->state)) {
         nv2a_profile_inc_counter(NV2A_PROF_SHADER_BIND_NOTDIRTY);
         goto update_uniforms;
@@ -1146,6 +1427,7 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg)
                          state.vsh.is_fixed_function ? "FF" : "PROG");
 
     qemu_mutex_lock(&r->shader_cache_lock);
+    shader_async_collect(r);
 
     uint64_t shader_state_hash =
         fast_hash((uint8_t *)&state, sizeof(ShaderState));
@@ -1154,6 +1436,14 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg)
     ShaderBinding *binding = container_of(node, ShaderBinding, node);
 
     if (!binding->initialized && !pgraph_gl_shader_load_from_memory(binding)) {
+        if (shader_async_request(binding, shader_state_hash)) {
+            /* draws are skipped until the background compile is picked up; the dirty
+             * register map stays set, so the next bind looks the state up again */
+            r->shader_pending = true;
+            qemu_mutex_unlock(&r->shader_cache_lock);
+            NV2A_GL_DGROUP_END();
+            return;
+        }
         nv2a_profile_inc_counter(NV2A_PROF_SHADER_GEN);
         int64_t t0 = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
         generate_shaders(r, binding);
@@ -1173,6 +1463,7 @@ void pgraph_gl_bind_shaders(PGRAPHState *pg)
         }
     }
     assert(binding->initialized);
+    r->shader_pending = false;
     r->shader_binding = binding;
     pg->program_data_dirty = false;
 

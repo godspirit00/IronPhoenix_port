@@ -41,6 +41,8 @@ void glo_set_current(GloContext *context);
 
 /* Check GL Extensions */
 bool glo_check_extension(const char* ext_name);
+/* GL entry point by name (extensions glad does not load), NULL if absent */
+void *glo_get_proc_address(const char *name);
 
 /* Create an OpenGL context */
 GloContext *glo_context_create(void);

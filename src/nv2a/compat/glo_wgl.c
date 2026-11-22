@@ -117,6 +117,10 @@ void glo_set_current(GloContext *context) {
     else wglMakeCurrent(NULL, NULL);
 }
 
+void *glo_get_proc_address(const char *name) {
+    return (void *)glo_get_proc(name);
+}
+
 bool glo_check_extension(const char *ext_name) {
     GLint n = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &n);
