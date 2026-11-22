@@ -60,6 +60,7 @@ static LONG CALLBACK crash_handler(EXCEPTION_POINTERS *ep) {
         bp = (uint32_t *)bp[0];
     }
     logf("  frames: %s", buf);
+    log_flush(); // the process may die right after this handler
     inside = false;
     return EXCEPTION_CONTINUE_SEARCH;
 }

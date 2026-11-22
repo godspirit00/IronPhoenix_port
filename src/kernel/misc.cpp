@@ -164,10 +164,12 @@ KEXPORT void xk_XcRC4Crypt(uint8_t *ks, uint32_t n, uint8_t *data) {
 KEXPORT void xk_HalReturnToFirmware(uint32_t Routine) {
     logf("HalReturnToFirmware(%u) - game exited", Routine);
     log_backtrace("HalReturnToFirmware");
+    log_flush();
     ExitProcess(0);
 }
 KEXPORT void xk_HalInitiateShutdown() {
     logf("HalInitiateShutdown");
+    log_flush();
     ExitProcess(0);
 }
 KEXPORT uint32_t xk_HalIsResetOrShutdownPending() { return 0; }

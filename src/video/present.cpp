@@ -361,5 +361,6 @@ void video_main_loop() {
     }
     logf("window closed - exiting");
     release_mouse(false);
+    log_flush();
     ExitProcess(0);
 }

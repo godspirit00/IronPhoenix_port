@@ -101,7 +101,8 @@ void debug_dump_threads(const char *why) {
     CloseHandle(snap);
     logf("==== thread dump (%s): %zu threads ====", why, threads.size());
     for (auto &t : threads) {
-        if (t.second == GetCurrentThreadId()) continue;
+        // never suspend the log writer: this thread logs while the other thread is suspended
+        if (t.second == GetCurrentThreadId() || t.second == log_writer_tid()) continue;
         if (SuspendThread(t.first) == (DWORD)-1) {
             logf("  tid %5lu: SuspendThread failed (%lu)", t.second, GetLastError());
             continue;

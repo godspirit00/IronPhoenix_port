@@ -102,6 +102,7 @@ Environment variables that can help on slower machines (Steam Deck):
 | `XB_VP_WORKERS=N` | Audio voice worker threads (default: half the logical CPUs, at most 4) |
 | `XB_NO_CONSERVATIVE_DEPTH=1` | Disable conservative depth (OpenGL: lets the GPU reject hidden pixels early while keeping exact emulated depth; about a third less GPU time in effect-heavy scenes). For comparison or if you see missing geometry |
 | `XB_VIS_WAIT=0` | Restore the game's original busy-wait for occlusion results (the default sleeps until the result arrives, freeing a CPU core) |
+| `XB_LOG_SYNC=1` | Write log lines on the calling thread, as before (the default hands them to a writer thread, so a slow disk can't stall video or rendering) |
 
 GTX 1060 / 4-thread CPU results and diagnostics (`XB_GPU_PROFILE=1`, `XB_CONSERVATIVE_VERIFY=1`,
 `XB_PROFILE_APU_ONLY=1`, `XB_PROFILE_VP_ONLY=1`): see [docs/GTX1060_PROGRESS.md](docs/GTX1060_PROGRESS.md).

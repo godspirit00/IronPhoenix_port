@@ -7,6 +7,8 @@
 void log_init(const char *path);
 void logf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void log_backtrace(const char *tag);
+void log_flush();                // wait (bounded) until queued log lines are written
+unsigned long log_writer_tid(); // thread id of the log writer (0 when logging is synchronous)
 [[noreturn]] void fatal(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 // Verbose channel toggles (set from config / command line)

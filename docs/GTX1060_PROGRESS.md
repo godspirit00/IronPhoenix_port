@@ -125,10 +125,39 @@ Matrix 3's Great Wall and Training Square Night dips coincide with first-time sh
 (the conservative-depth variants are new cache entries; the cache is now warm). Gameplay is
 not deterministic between runs, so single dips are not comparisons.
 
+### Log writes stalled the vblank and renderer threads (2026-11-22)
+
+Castle Entrance matrix 3's late gaps (622 ms, 390 ms) were not GPU or game work. Every log line
+was an unbuffered `stderr` write plus an `fflush` of `ironphoenix.log`, done on the calling
+thread under one global lock, and `E:` here is a 5400 rpm laptop HDD (ST1000LM048). The
+622 ms gap started when the renderer logged its `Texture state` line, and the 390 ms one
+fell between two consecutive lines of the vblank thread. No vblank means no flips, and the
+vblank thread's 2 s stats interval stretched by the same amount (`frames: 84 in 2390 ms`).
+Earlier runs show the same signature: matrix 1 Apparatus Maze, `frames: 120 in 2517 ms` after
+two lines of ~260 ms each; `gpuprof2` `frames: 120 in 2629 ms`; matrix 1 Castle Entrance 501 ms.
+
+Change: the log is asynchronous. Callers format and timestamp the line and copy it into a
+1 MB buffer; a writer thread (above normal priority) writes batches to `stderr` and the file.
+A full buffer makes the caller wait, so no line is dropped. Flushed (bounded, 3 s) by
+`fatal`, the crash handler, the exit paths and `atexit`; the thread dump skips the writer.
+A writer batch that takes >= 100 ms is reported (`log: write of N bytes took X ms`);
+`XB_LOG_SYNC=1` restores direct writes and reports a calling thread blocked >= 100 ms.
+
+A/B, Castle Entrance, HDD write pressure on `E:` (8 MB + 40 x 4 KB writes, each followed by
+`fsync`, in a loop) from 120 s to 173 s, window 128-174 s (`scratch/perf/g1060-log2-*`):
+
+| Variant | Interval fps min / mean | Worst gap | Notes |
+| --- | --- | --- | --- |
+| `XB_LOG_SYNC=1` | 42.9 / 59.19 | 796.9 ms | vblank thread blocked in a log write for 757 ms and 797 ms (the two gaps); two more threads waited 267 / 708 ms on the log lock |
+| async (default) | 59.5 / 60.0 | 17.6 ms | no hitch, no slow write reported, log complete to the end |
+
+A first attempt (stress from 100 s) was confounded: that run loaded the scene 6 s later, so
+the stress hit the game's own asset reads from the same disk. Its log also ended 15 s before
+the process was killed (writer at normal priority, starved or blocked; the writer is now
+above normal and reports slow writes, and the rerun's log was complete).
+
 ## Open issues
 
-* Castle Entrance matrix 3: two flip gaps (622 ms, 390 ms) late in the window without a
-  shader compile or screenshot nearby. Not investigated yet.
 * Vulkan build not compiled on this machine (toolchain not prepared); the conservative-depth
   generator change is guarded to OpenGL.
 * Next ideas: per-pixel depth math is still ~20% of depth-tested draw time (variant 2 vs
